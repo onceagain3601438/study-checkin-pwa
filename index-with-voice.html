@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="专业的学习打卡管理工具，支持语音提醒、日历视图、学习计划管理、积分奖励系统">
+    <meta name="keywords" content="学习打卡,学习计划,积分奖励,语音提醒,学习管理">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="学习打卡">
+    
+    <title>学习打卡 - 专业的学习管理工具 (含语音提醒)</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- 图标 -->
+    <link rel="icon" href="/icon-72.png" sizes="72x72">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    
+    <!-- 引入语音提醒模块 -->
+    <script src="voice-reminder.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+            padding-bottom: 60px;
+        }
+        
+        /* 基础样式 */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            height: 60px;
+            z-index: 1000;
+        }
+        
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .nav-item.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        
+        .nav-icon {
+            font-size: 20px;
+            margin-bottom: 2px;
+        }
+        
+        .nav-text {
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
+        .page {
+            display: none;
+            padding: 10px;
+            min-height: calc(100vh - 60px);
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            color: white;
+            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .page-title {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        
+        .total-points {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 5px 10px;
+        }
+        
+        .points-value {
+            font-size: 14px;
+            font-weight: bold;
+            color: #ffd700;
+            margin: 0 3px;
+        }
+        
+        /* 语音提醒指示器 */
+        .voice-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #51cf66, #69db7c);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1002;
+            animation: pulse 2s infinite;
+        }
+        
+        .voice-indicator.disabled {
+            background: #999;
+            animation: none;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        /* 学习计划样式 */
+        .plan-item {
+            background: white;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+        
+        .plan-header {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            background: linear-gradient(135deg, #f8f9ff, #ffffff);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .plan-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .plan-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .action-btn {
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: rgba(102, 126, 234, 0.1);
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .tasks-table {
+            padding: 15px;
+        }
+        
+        .table-header {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr 0.5fr 0.5fr 0.8fr;
+            gap: 5px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .table-row {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr 0.5fr 0.5fr 0.8fr;
+            gap: 5px;
+            align-items: center;
+            padding: 8px 10px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 11px;
+        }
+        
+        .time-slot-btn {
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            cursor: pointer;
+            text-align: center;
+            min-width: 50px;
+            position: relative;
+        }
+        
+        .time-slot-btn.has-time {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        
+        .time-slot-btn.no-time {
+            background: #f8f9fa;
+            color: #666;
+            border: 1px dashed #ddd;
+        }
+        
+        .time-slot-btn.has-reminder::after {
+            content: "🔊";
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            font-size: 8px;
+            background: #51cf66;
+            color: white;
+            border-radius: 50%;
+            width: 15px;
+            height: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .points-btn {
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            cursor: pointer;
+            text-align: center;
+            min-width: 50px;
+        }
+        
+        .points-btn.has-points {
+            background: linear-gradient(135deg, #ffd700, #ffb300);
+            color: white;
+        }
+        
+        .points-btn.no-points {
+            background: #f8f9fa;
+            color: #666;
+            border: 1px dashed #ddd;
+        }
+        
+        .checkbox {
+            width: 18px;
+            height: 18px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        
+        .checkbox.checked {
+            background: linear-gradient(135deg, #51cf66, #69db7c);
+            border-color: #51cf66;
+        }
+        
+        .check-mark {
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #51cf66, #69db7c);
+            color: white;
+        }
+        
+        .add-plan-btn {
+            width: 100%;
+            height: 40px;
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .modal-title {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+        
+        .form-textarea {
+            height: 60px;
+            resize: vertical;
+        }
+        
+        .form-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            background: white;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-number {
+            display: block;
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 3px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 480px) {
+            .table-header, .table-row {
+                font-size: 10px;
+            }
+            
+            .time-slot-btn, .points-btn {
+                font-size: 9px;
+                min-width: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 语音提醒状态指示器 -->
+    <div id="voiceIndicator" class="voice-indicator">
+        🔊 语音提醒已启用
+    </div>
+
+    <!-- 学习计划页面 -->
+    <div class="page active" id="studyPage">
+        <div class="header">
+            <div class="header-content">
+                <span class="page-title">学习计划</span>
+                <div class="total-points">
+                    <span>🏆</span>
+                    <span class="points-value" id="totalPointsStudy">0</span>
+                    <span>总积分</span>
+                </div>
+            </div>
+            <div style="text-align: center; font-size: 12px; opacity: 0.9;">
+                💪 坚持每一天，成就更好的自己！语音提醒助您专注学习
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-bottom: 10px;">
+            <button class="btn btn-primary" onclick="changeDate(-1)">‹ 前一天</button>
+            <span id="currentStudyDate" style="margin: 0 10px; font-weight: bold;">2025年01月07日</span>
+            <button class="btn btn-primary" onclick="changeDate(1)">后一天 ›</button>
+        </div>
+
+        <div id="studyPlans"></div>
+
+        <div class="empty-state" id="emptyState">
+            <div style="font-size: 30px; margin-bottom: 10px;">📚</div>
+            <div style="font-size: 14px; font-weight: bold; margin-bottom: 5px;">还没有学习计划</div>
+            <div style="font-size: 12px; color: #666;">点击下方按钮创建你的第一个学习计划</div>
+        </div>
+
+        <button class="add-plan-btn" onclick="showAddPlanModal()">+ 添加学习计划</button>
+    </div>
+
+    <!-- 积分页面 -->
+    <div class="page" id="pointsPage">
+        <div class="header">
+            <div class="header-content">
+                <span class="page-title">积分中心</span>
+                <div class="total-points">
+                    <span>🏆</span>
+                    <span class="points-value" id="totalPointsCenter">0</span>
+                    <span>总积分</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-item">
+                <span class="stat-number" id="todayPoints">0</span>
+                <span class="stat-label">今日积分</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number" id="weekPoints">0</span>
+                <span class="stat-label">本周积分</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number" id="monthPointsCenter">0</span>
+                <span class="stat-label">本月积分</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number" id="totalPointsDisplay">0</span>
+                <span class="stat-label">累计积分</span>
+            </div>
+        </div>
+
+        <div style="background: white; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);">
+            <h3 style="margin-bottom: 10px; font-size: 14px;">🔊 语音提醒功能说明</h3>
+            <div style="font-size: 12px; color: #666; line-height: 1.5;">
+                <p><strong>多种提醒类型可选择：</strong></p>
+                <div style="margin-left: 10px; margin-bottom: 8px;">
+                    <p>🕐 学习开始提醒 - 学习时间到达时播放</p>
+                    <p>⏰ 学习结束提醒 - 学习时间结束时播放</p>
+                    <p>✅ 任务完成提醒 - 勾选学习状态时播放</p>
+                    <p>🎯 任务掌握提醒 - 勾选掌握状态时播放</p>
+                    <p>⚙️ 设置确认提醒 - 设置时间或积分时播放</p>
+                    <p>📋 计划添加提醒 - 添加新学习计划时播放</p>
+                    <p>💪 鼓励性提醒 - 达成学习目标时播放</p>
+                </div>
+                <p><strong>个性化设置：</strong></p>
+                <div style="margin-left: 10px; margin-bottom: 8px;">
+                    <p>• 可单独开启/关闭每种提醒类型</p>
+                    <p>• 音量、语速、音调可调节</p>
+                    <p>• 支持快速设置（全选/全不选/仅重要）</p>
+                    <p>• 完全离线使用，无需网络</p>
+                </div>
+                <p><strong>使用方法：</strong></p>
+                <div style="margin-left: 10px;">
+                    <p>• 点击右下角🔊按钮打开设置面板</p>
+                    <p>• 根据需要选择要启用的提醒类型</p>
+                    <p>• 右上角数字显示已启用的提醒数量</p>
+                    <p>• 设置时间段后自动启用定时提醒</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部导航 -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchPage('study')">
+            <div class="nav-icon">📚</div>
+            <div class="nav-text">学习</div>
+        </div>
+        <div class="nav-item" onclick="switchPage('points')">
+            <div class="nav-icon">🏆</div>
+            <div class="nav-text">积分</div>
+        </div>
+    </div>
+
+    <!-- 添加计划模态框 -->
+    <div class="modal" id="addPlanModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">添加学习计划</span>
+                <button class="close-btn" onclick="hideAddPlanModal()">&times;</button>
+            </div>
+            <form id="addPlanForm">
+                <div class="form-group">
+                    <label class="form-label">计划名称</label>
+                    <input type="text" class="form-input" id="planName" placeholder="请输入计划名称" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">学习任务（每行一个）</label>
+                    <textarea class="form-textarea" id="planTasks" placeholder="任务名称|积分&#10;例如：阅读30分钟|10&#10;背单词50个|15" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" id="enableVoiceForPlan" checked>
+                        为此计划启用语音提醒
+                    </label>
+                </div>
+                <div class="form-buttons">
+                    <button type="button" class="btn" onclick="hideAddPlanModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentStudyDate = new Date();
+        let studyData = {};
+        let totalPoints = 0;
+        let voiceReminder = null;
+
+        // 初始化应用
+        function init() {
+            loadData();
+            updateTotalPoints();
+            updateStudyDisplay();
+            updatePointsDisplay();
+            
+            // 初始化语音提醒系统
+            if (typeof VoiceReminder !== 'undefined') {
+                voiceReminder = new VoiceReminder();
+                window.voiceReminder = voiceReminder;
+                updateVoiceIndicator();
+            }
+            
+            // 请求通知权限
+            if ('Notification' in window) {
+                Notification.requestPermission();
+            }
+        }
+
+        // 页面切换
+        function switchPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            
+            document.getElementById(page + 'Page').classList.add('active');
+            document.querySelector(`[onclick="switchPage('${page}')"]`).classList.add('active');
+            
+            if (page === 'study') {
+                updateStudyDisplay();
+            } else if (page === 'points') {
+                updatePointsDisplay();
+            }
+        }
+
+        // 更新语音提醒状态指示器
+        function updateVoiceIndicator() {
+            const indicator = document.getElementById('voiceIndicator');
+            if (voiceReminder && voiceReminder.isEnabled) {
+                const stats = voiceReminder.getEnabledReminderStats();
+                indicator.textContent = `🔊 语音提醒已启用 (${stats.enabled}/${stats.total})`;
+                indicator.classList.remove('disabled');
+            } else {
+                indicator.textContent = '🔇 语音提醒已关闭';
+                indicator.classList.add('disabled');
+            }
+        }
+
+        // 数据管理函数
+        function loadData() {
+            const saved = localStorage.getItem('studyCheckIn');
+            if (saved) {
+                studyData = JSON.parse(saved);
+            }
+            
+            totalPoints = parseInt(localStorage.getItem('totalPoints')) || 0;
+        }
+
+        function saveData() {
+            localStorage.setItem('studyCheckIn', JSON.stringify(studyData));
+            localStorage.setItem('totalPoints', totalPoints.toString());
+        }
+
+        function updateTotalPoints() {
+            let calculatedTotal = 0;
+            for (const dateKey in studyData) {
+                const plans = studyData[dateKey] || [];
+                for (const plan of plans) {
+                    calculatedTotal += plan.earnedPoints || 0;
+                }
+            }
+            
+            totalPoints = calculatedTotal;
+            
+            document.getElementById('totalPointsStudy').textContent = totalPoints;
+            document.getElementById('totalPointsCenter').textContent = totalPoints;
+            document.getElementById('totalPointsDisplay').textContent = totalPoints;
+        }
+
+        function getDateKey(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}年${month}月${day}日`;
+        }
+
+        // 学习计划显示更新
+        function updateStudyDisplay() {
+            document.getElementById('currentStudyDate').textContent = formatDate(currentStudyDate);
+            
+            const dateKey = getDateKey(currentStudyDate);
+            const plans = studyData[dateKey] || [];
+            
+            const studyPlansContainer = document.getElementById('studyPlans');
+            const emptyState = document.getElementById('emptyState');
+            
+            if (plans.length === 0) {
+                studyPlansContainer.innerHTML = '';
+                emptyState.style.display = 'block';
+            } else {
+                emptyState.style.display = 'none';
+                
+                studyPlansContainer.innerHTML = plans.map(plan => `
+                    <div class="plan-item">
+                        <div class="plan-header">
+                            <span class="plan-name">${plan.name}</span>
+                            <div class="plan-actions">
+                                <div class="action-btn" onclick="deletePlan(${plan.id})">🗑️</div>
+                            </div>
+                        </div>
+                        
+                        <div class="tasks-table">
+                            <div class="table-header">
+                                <div>时间段</div>
+                                <div>任务</div>
+                                <div>学习</div>
+                                <div>掌握</div>
+                                <div>积分</div>
+                            </div>
+                            
+                            ${plan.tasks.map(task => `
+                                <div class="table-row">
+                                    <div>
+                                        <div class="time-slot-btn ${task.timeSlot ? 'has-time' : 'no-time'} ${task.timeSlot && voiceReminder?.isEnabled ? 'has-reminder' : ''}" 
+                                             onclick="setTimeSlot(${plan.id}, ${task.id})">
+                                            ${task.timeSlot || '设置'}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span class="task-text" onclick="editTask(${plan.id}, ${task.id})">${task.name}</span>
+                                    </div>
+                                    <div>
+                                        <div class="checkbox ${task.studyCompleted ? 'checked' : ''}" 
+                                             onclick="toggleStudy(${plan.id}, ${task.id})">
+                                            ${task.studyCompleted ? '<span class="check-mark">✓</span>' : ''}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="checkbox ${task.masteredCompleted ? 'checked' : ''}" 
+                                             onclick="toggleMaster(${plan.id}, ${task.id})">
+                                            ${task.masteredCompleted ? '<span class="check-mark">✓</span>' : ''}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="points-btn ${task.points > 0 ? 'has-points' : 'no-points'}" 
+                                             onclick="setPoints(${plan.id}, ${task.id})">
+                                            ${task.points > 0 ? `${task.earnedPoints}/${task.points}` : '设置'}
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                            
+                            <div style="text-align: center; margin-top: 10px;">
+                                <button class="btn btn-success" onclick="addTask(${plan.id})">+ 添加任务</button>
+                            </div>
+                        </div>
+                        
+                        <div style="padding: 15px; background: #f8f9ff; text-align: center; font-size: 12px;">
+                            完成度: ${plan.completionRate}% | 任务: ${plan.completedTasks}/${plan.totalTasks} | 积分: ${plan.earnedPoints}/${plan.totalPoints}
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            // 更新语音提醒
+            if (voiceReminder) {
+                voiceReminder.updateAllTaskReminders(studyData, currentStudyDate);
+            }
+        }
+
+        function changeDate(delta) {
+            currentStudyDate.setDate(currentStudyDate.getDate() + delta);
+            updateStudyDisplay();
+        }
+
+        // 任务操作函数
+        function toggleStudy(planId, taskId) {
+            const dateKey = getDateKey(currentStudyDate);
+            const plan = studyData[dateKey]?.find(p => p.id === planId);
+            const task = plan?.tasks.find(t => t.id === taskId);
+            
+            if (task) {
+                task.studyCompleted = !task.studyCompleted;
+                updateTaskPoints(task);
+                updatePlanStats(plan);
+                saveData();
+                updateTotalPoints();
+                updateStudyDisplay();
+                
+                // 播放完成提醒
+                if (task.studyCompleted && voiceReminder) {
+                    voiceReminder.playTaskCompleteReminder(task.name);
+                }
+            }
+        }
+
+        function toggleMaster(planId, taskId) {
+            const dateKey = getDateKey(currentStudyDate);
+            const plan = studyData[dateKey]?.find(p => p.id === planId);
+            const task = plan?.tasks.find(t => t.id === taskId);
+            
+            if (task) {
+                task.masteredCompleted = !task.masteredCompleted;
+                updateTaskPoints(task);
+                updatePlanStats(plan);
+                saveData();
+                updateTotalPoints();
+                updateStudyDisplay();
+                
+                // 播放掌握提醒
+                if (task.masteredCompleted && voiceReminder) {
+                    voiceReminder.playTaskMasterReminder(task.name, task.earnedPoints);
+                }
+            }
+        }
+
+        function updateTaskPoints(task) {
+            let earned = 0;
+            if (task.studyCompleted) earned += Math.floor(task.points * 0.5);
+            if (task.masteredCompleted) earned += Math.floor(task.points * 0.5);
+            task.earnedPoints = earned;
+        }
+
+        function updatePlanStats(plan) {
+            const completedTasks = plan.tasks.filter(task => 
+                task.studyCompleted && task.masteredCompleted
+            ).length;
+            
+            plan.completedTasks = completedTasks;
+            plan.completionRate = Math.round((completedTasks / plan.totalTasks) * 100);
+            plan.earnedPoints = plan.tasks.reduce((sum, task) => sum + task.earnedPoints, 0);
+        }
+
+        function editTask(planId, taskId) {
+            const dateKey = getDateKey(currentStudyDate);
+            const plan = studyData[dateKey]?.find(p => p.id === planId);
+            const task = plan?.tasks.find(t => t.id === taskId);
+            
+            if (task) {
+                const newName = prompt('请输入新的任务名称：', task.name);
+                if (newName && newName !== task.name) {
+                    task.name = newName;
+                    saveData();
+                    updateStudyDisplay();
+                }
+            }
+        }
+
+        function setTimeSlot(planId, taskId) {
+            const dateKey = getDateKey(currentStudyDate);
+            const plan = studyData[dateKey]?.find(p => p.id === planId);
+            const task = plan?.tasks.find(t => t.id === taskId);
+            
+            if (task) {
+                const timeSlot = prompt('请输入时间段（例如：21:00-21:15）：', task.timeSlot || '');
+                if (timeSlot !== null) {
+                    task.timeSlot = timeSlot;
+                    saveData();
+                    updateStudyDisplay();
+                    
+                    // 设置语音提醒
+                    if (timeSlot && voiceReminder) {
+                        voiceReminder.setTaskReminder(task, plan.name);
+                        voiceReminder.playSettingConfirmReminder('timeSlot', {
+                            taskName: task.name,
+                            timeSlot: timeSlot
+                        });
+                    }
+                }
+            }
+        }
+
+        function setPoints(planId, taskId) {
+            const dateKey = getDateKey(currentStudyDate);
+            const plan = studyData[dateKey]?.find(p => p.id === planId);
+            const task = plan?.tasks.find(t => t.id === taskId);
+            
+            if (task) {
+                const points = prompt('请输入积分：', task.points || '');
+                if (points !== null && !isNaN(points)) {
+                    task.points = parseInt(points);
+                    plan.totalPoints = plan.tasks.reduce((sum, task) => sum + task.points, 0);
+                    updateTaskPoints(task);
+                    updatePlanStats(plan);
+                    saveData();
+                    updateTotalPoints();
+                    updateStudyDisplay();
+                    
+                    // 播放设置确认提醒
+                    if (voiceReminder) {
+                        voiceReminder.playSettingConfirmReminder('points', points);
+                    }
+                }
+            }
+        }
+
+        function addTask(planId) {
+            const taskName = prompt('请输入任务名称：');
+            if (taskName) {
+                const dateKey = getDateKey(currentStudyDate);
+                const plan = studyData[dateKey]?.find(p => p.id === planId);
+                
+                if (plan) {
+                    const newTask = {
+                        id: Date.now(),
+                        name: taskName,
+                        timeSlot: '',
+                        studyCompleted: false,
+                        masteredCompleted: false,
+                        points: 0,
+                        earnedPoints: 0
+                    };
+                    
+                    plan.tasks.push(newTask);
+                    plan.totalTasks = plan.tasks.length;
+                    updatePlanStats(plan);
+                    saveData();
+                    updateStudyDisplay();
+                }
+            }
+        }
+
+        function deletePlan(planId) {
+            if (confirm('确定要删除这个计划吗？')) {
+                const dateKey = getDateKey(currentStudyDate);
+                studyData[dateKey] = studyData[dateKey]?.filter(p => p.id !== planId) || [];
+                saveData();
+                updateTotalPoints();
+                updateStudyDisplay();
+            }
+        }
+
+        // 添加计划相关函数
+        function showAddPlanModal() {
+            document.getElementById('addPlanModal').style.display = 'block';
+        }
+
+        function hideAddPlanModal() {
+            document.getElementById('addPlanModal').style.display = 'none';
+            document.getElementById('addPlanForm').reset();
+        }
+
+        function addPlan(planName, tasksText) {
+            const dateKey = getDateKey(currentStudyDate);
+            
+            if (!studyData[dateKey]) {
+                studyData[dateKey] = [];
+            }
+
+            const tasks = tasksText.split('\n').filter(line => line.trim()).map((line, index) => {
+                const parts = line.split('|');
+                const taskName = parts[0]?.trim() || `任务${index + 1}`;
+                const points = parseInt(parts[1]?.trim()) || 0;
+                
+                return {
+                    id: Date.now() + index,
+                    name: taskName,
+                    timeSlot: '',
+                    studyCompleted: false,
+                    masteredCompleted: false,
+                    points: points,
+                    earnedPoints: 0
+                };
+            });
+
+            const plan = {
+                id: Date.now(),
+                name: planName,
+                tasks: tasks,
+                completionRate: 0,
+                completedTasks: 0,
+                totalTasks: tasks.length,
+                earnedPoints: 0,
+                totalPoints: tasks.reduce((sum, task) => sum + task.points, 0)
+            };
+
+            studyData[dateKey].push(plan);
+            saveData();
+            updateStudyDisplay();
+            
+            // 播放计划添加提醒
+            if (voiceReminder) {
+                voiceReminder.playPlanAddedReminder(planName, tasks.length);
+            }
+        }
+
+        // 表单提交事件
+        document.getElementById('addPlanForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const planName = document.getElementById('planName').value.trim();
+            const tasksText = document.getElementById('planTasks').value.trim();
+            
+            if (planName && tasksText) {
+                addPlan(planName, tasksText);
+                hideAddPlanModal();
+            }
+        });
+
+        // 积分页面相关函数
+        function updatePointsDisplay() {
+            const today = new Date();
+            const todayKey = getDateKey(today);
+            const todayPlans = studyData[todayKey] || [];
+            const todayPoints = todayPlans.reduce((sum, plan) => sum + (plan.earnedPoints || 0), 0);
+            
+            document.getElementById('todayPoints').textContent = todayPoints;
+            
+            // 计算本周积分
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() - today.getDay());
+            let weekPoints = 0;
+            
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(weekStart);
+                date.setDate(weekStart.getDate() + i);
+                const dateKey = getDateKey(date);
+                const plans = studyData[dateKey] || [];
+                weekPoints += plans.reduce((sum, plan) => sum + (plan.earnedPoints || 0), 0);
+            }
+            
+            document.getElementById('weekPoints').textContent = weekPoints;
+            
+            // 计算本月积分
+            const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+            const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            let monthPoints = 0;
+            
+            for (let date = new Date(monthStart); date <= monthEnd; date.setDate(date.getDate() + 1)) {
+                const dateKey = getDateKey(date);
+                const plans = studyData[dateKey] || [];
+                monthPoints += plans.reduce((sum, plan) => sum + (plan.earnedPoints || 0), 0);
+            }
+            
+            document.getElementById('monthPointsCenter').textContent = monthPoints;
+        }
+
+        // 模态框点击外部关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('addPlanModal');
+            if (event.target == modal) {
+                hideAddPlanModal();
+            }
+        }
+
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html> 
