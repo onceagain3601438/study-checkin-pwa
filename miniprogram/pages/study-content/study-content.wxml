@@ -1,0 +1,181 @@
+<!--学习内容设置页面-->
+<view class="content-container">
+  <!-- 页面标题 -->
+  <view class="header">
+    <text class="title">设置学习内容</text>
+    <text class="date">{{dateText}}</text>
+  </view>
+
+  <!-- 当前学习内容 -->
+  <view class="content-section">
+    <view class="section-title">
+      <text class="title-text">学习内容</text>
+      <text class="required">*</text>
+    </view>
+    
+    <view class="content-input">
+      <textarea 
+        class="content-textarea"
+        placeholder="请输入今日学习内容..."
+        value="{{studyContent}}"
+        bindinput="onContentInput"
+        maxlength="500"
+        auto-height
+        show-confirm-bar="{{false}}"
+        cursor-spacing="20">
+      </textarea>
+      <view class="char-count">
+        <text>{{studyContent.length}}/500</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 快捷操作 -->
+  <view class="quick-actions">
+    <view class="action-title">
+      <text>快捷操作</text>
+    </view>
+    
+    <view class="action-buttons">
+      <button 
+        class="action-btn" 
+        bindtap="onCopyYesterday"
+        wx:if="{{yesterdayContent}}">
+        <view class="btn-content">
+          <text class="btn-icon">📝</text>
+          <text class="btn-text">复用昨天内容</text>
+        </view>
+      </button>
+      
+      <button 
+        class="action-btn" 
+        bindtap="onSelectTemplate"
+        wx:if="{{hasTemplates}}">
+        <view class="btn-content">
+          <text class="btn-icon">📋</text>
+          <text class="btn-text">选择模板</text>
+        </view>
+      </button>
+      
+      <button 
+        class="action-btn" 
+        bindtap="onCreateTemplate"
+        wx:if="{{studyContent.length > 0}}">
+        <view class="btn-content">
+          <text class="btn-icon">💾</text>
+          <text class="btn-text">保存为模板</text>
+        </view>
+      </button>
+    </view>
+  </view>
+
+  <!-- 模板选择弹窗 -->
+  <view class="template-modal" wx:if="{{showTemplateModal}}">
+    <view class="modal-mask" bindtap="onCloseTemplateModal"></view>
+    <view class="modal-content">
+      <view class="modal-header">
+        <text class="modal-title">选择学习模板</text>
+        <view class="modal-close" bindtap="onCloseTemplateModal">
+          <text>×</text>
+        </view>
+      </view>
+      
+      <view class="template-list">
+        <view 
+          class="template-item"
+          wx:for="{{templates}}"
+          wx:key="id"
+          bindtap="onSelectTemplateItem"
+          data-template="{{item}}">
+          <view class="template-info">
+            <text class="template-name">{{item.name}}</text>
+            <text class="template-content">{{item.content}}</text>
+          </view>
+          <view class="template-time">
+            <text>{{item.createTime}}</text>
+          </view>
+        </view>
+      </view>
+      
+      <view class="modal-footer">
+        <button class="modal-btn cancel" bindtap="onCloseTemplateModal">取消</button>
+        <button class="modal-btn manage" bindtap="onManageTemplates">管理模板</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 创建模板弹窗 -->
+  <view class="template-modal" wx:if="{{showCreateModal}}">
+    <view class="modal-mask" bindtap="onCloseCreateModal"></view>
+    <view class="modal-content">
+      <view class="modal-header">
+        <text class="modal-title">保存为模板</text>
+        <view class="modal-close" bindtap="onCloseCreateModal">
+          <text>×</text>
+        </view>
+      </view>
+      
+      <view class="create-form">
+        <view class="form-item">
+          <text class="form-label">模板名称</text>
+          <input 
+            class="form-input"
+            placeholder="请输入模板名称"
+            value="{{templateName}}"
+            bindinput="onTemplateNameInput"
+            maxlength="20">
+          </input>
+        </view>
+        
+        <view class="form-item">
+          <text class="form-label">模板内容</text>
+          <textarea 
+            class="form-textarea"
+            value="{{studyContent}}"
+            disabled
+            auto-height>
+          </textarea>
+        </view>
+      </view>
+      
+      <view class="modal-footer">
+        <button class="modal-btn cancel" bindtap="onCloseCreateModal">取消</button>
+        <button class="modal-btn confirm" bindtap="onConfirmCreateTemplate">保存</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 备注信息 -->
+  <view class="notes-section">
+    <view class="section-title">
+      <text class="title-text">备注</text>
+    </view>
+    
+    <view class="notes-input">
+      <textarea 
+        class="notes-textarea"
+        placeholder="可添加学习备注（选填）"
+        value="{{notes}}"
+        bindinput="onNotesInput"
+        maxlength="200"
+        auto-height
+        show-confirm-bar="{{false}}"
+        cursor-spacing="20">
+      </textarea>
+    </view>
+  </view>
+
+  <!-- 底部操作按钮 -->
+  <view class="bottom-actions">
+    <button 
+      class="save-btn"
+      bindtap="onSaveContent"
+      disabled="{{!studyContent.length}}">
+      保存学习内容
+    </button>
+    
+    <view class="action-tips" wx:if="{{!studyContent.length}}">
+      <text>请输入学习内容</text>
+    </view>
+  </view>
+</view> 

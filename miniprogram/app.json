@@ -1,0 +1,55 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/study-checkin/study-checkin",
+    "pages/study-content/study-content",
+    "pages/study-template/study-template",
+    "pages/cases/cases",
+    "pages/logs/logs",
+    "pages/contact/contact"
+  ],
+  "window": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "学习打卡小程序",
+    "navigationBarBackgroundColor": "#ffffff"
+  },
+  "tabBar": {
+    "color": "#8a8a8a",
+    "selectedColor": "#1AAD19",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "images/house.png",
+        "selectedIconPath": "images/house1.png"
+      },
+      {
+        "pagePath": "pages/study-checkin/study-checkin",
+        "text": "学习打卡",
+        "iconPath": "images/calendar.png",
+        "selectedIconPath": "images/calendar1.png"
+      },
+      {
+        "pagePath": "pages/study-template/study-template",
+        "text": "学习模板",
+        "iconPath": "images/template.png",
+        "selectedIconPath": "images/template1.png"
+      },
+      {
+        "pagePath": "pages/contact/contact",
+        "text": "联系我们",
+        "iconPath": "images/bubble_circle.png",
+        "selectedIconPath": "images/bubble_circle1.png"
+      }
+    ],
+    "position": "bottom"
+  },
+  "style": "v2",
+  "componentFramework": "glass-easel",
+  "lazyCodeLoading": "requiredComponents",
+  "miniApp": {
+    "useAuthorizePage": true
+  }
+}

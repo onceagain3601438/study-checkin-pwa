@@ -1,0 +1,130 @@
+<!--学习模板管理页面-->
+<view class="template-container">
+  <!-- 页面标题 -->
+  <view class="header">
+    <text class="title">学习模板</text>
+    <text class="subtitle">管理你的学习内容模板</text>
+  </view>
+
+  <!-- 添加模板按钮 -->
+  <view class="add-section">
+    <button class="add-btn" bindtap="onAddTemplate">
+      <text class="add-icon">+</text>
+      <text class="add-text">添加新模板</text>
+    </button>
+  </view>
+
+  <!-- 模板列表 -->
+  <view class="template-list" wx:if="{{templates.length > 0}}">
+    <view 
+      class="template-item"
+      wx:for="{{templates}}"
+      wx:key="id">
+      <view class="template-content">
+        <view class="template-header">
+          <text class="template-name">{{item.name}}</text>
+          <text class="template-date">{{item.createTime}}</text>
+        </view>
+        <view class="template-body">
+          <text class="template-text">{{item.content}}</text>
+        </view>
+      </view>
+      
+      <view class="template-actions">
+        <button 
+          class="action-btn edit-btn" 
+          bindtap="onEditTemplate"
+          data-template="{{item}}">
+          编辑
+        </button>
+        <button 
+          class="action-btn delete-btn" 
+          bindtap="onDeleteTemplate"
+          data-template="{{item}}">
+          删除
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{templates.length === 0}}">
+    <text class="empty-icon">📋</text>
+    <text class="empty-title">暂无学习模板</text>
+    <text class="empty-desc">点击上方按钮添加你的第一个学习模板</text>
+  </view>
+
+  <!-- 创建/编辑模板弹窗 -->
+  <view class="template-modal" wx:if="{{showModal}}">
+    <view class="modal-mask" bindtap="onCloseModal"></view>
+    <view class="modal-content">
+      <view class="modal-header">
+        <text class="modal-title">{{isEditMode ? '编辑模板' : '添加模板'}}</text>
+        <view class="modal-close" bindtap="onCloseModal">
+          <text>×</text>
+        </view>
+      </view>
+      
+      <view class="modal-body">
+        <view class="form-item">
+          <view class="form-label">
+            <text class="label-text">模板名称</text>
+            <text class="required">*</text>
+          </view>
+          <input 
+            class="form-input"
+            placeholder="请输入模板名称"
+            value="{{formData.name}}"
+            bindinput="onNameInput"
+            maxlength="20"
+            focus="{{showModal && !isEditMode}}">
+          </input>
+          <view class="char-count">{{formData.name.length}}/20</view>
+        </view>
+        
+        <view class="form-item">
+          <view class="form-label">
+            <text class="label-text">模板内容</text>
+            <text class="required">*</text>
+          </view>
+          <textarea 
+            class="form-textarea"
+            placeholder="请输入学习内容模板"
+            value="{{formData.content}}"
+            bindinput="onContentInput"
+            maxlength="500"
+            auto-height
+            show-confirm-bar="{{false}}"
+            cursor-spacing="20">
+          </textarea>
+          <view class="char-count">{{formData.content.length}}/500</view>
+        </view>
+      </view>
+      
+      <view class="modal-footer">
+        <button class="modal-btn cancel-btn" bindtap="onCloseModal">
+          取消
+        </button>
+        <button 
+          class="modal-btn confirm-btn" 
+          bindtap="onConfirmSave"
+          disabled="{{!formData.name.length || !formData.content.length}}">
+          {{isEditMode ? '保存' : '添加'}}
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 使用提示 -->
+  <view class="tips-section" wx:if="{{templates.length > 0}}">
+    <view class="tips-title">
+      <text class="tips-icon">💡</text>
+      <text class="tips-text">使用提示</text>
+    </view>
+    <view class="tips-content">
+      <text class="tip-item">• 在设置学习内容时可以选择模板快速填充</text>
+      <text class="tip-item">• 模板内容可以根据需要随时编辑修改</text>
+      <text class="tip-item">• 建议为常用的学习内容创建模板</text>
+    </view>
+  </view>
+</view> 

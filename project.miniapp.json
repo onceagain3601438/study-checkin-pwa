@@ -1,0 +1,74 @@
+{
+  "miniVersion": "v2",
+  "name": "学习打卡",
+  "version": "1.0.0",
+  "versionCode": 100,
+  "description": "专业的学习打卡管理工具，支持日历视图、学习计划管理、积分奖励系统",
+  "i18nFilePath": "i18n",
+  "miniprogramLoginPath": "",
+  "plugins": {
+    "user-info": {
+      "enable": false
+    }
+  },
+  "mini-android": {
+    "resourcePath": "miniapp/android/nativeResources",
+    "sdkVersion": "1.6.15",
+    "toolkitVersion": "0.11.0",
+    "packageName": "com.studycheckin.app",
+    "useExtendedSdk": {
+      "media": false,
+      "bluetooth": false,
+      "network": false,
+      "scanner": false,
+      "xweb": false
+    },
+    "icons": {
+      "hdpi": "miniapp/android/nativeResources/res/drawable-hdpi/icon.png",
+      "xhdpi": "miniapp/android/nativeResources/res/drawable-xhdpi/icon.png",
+      "xxhdpi": "miniapp/android/nativeResources/res/drawable-xxhdpi/icon.png",
+      "xxxhdpi": "miniapp/android/nativeResources/res/drawable-xxxhdpi/icon.png"
+    },
+    "splashscreen": {
+      "hdpi": "miniapp/android/nativeResources/res/drawable-hdpi/splash.png",
+      "xhdpi": "miniapp/android/nativeResources/res/drawable-xhdpi/splash.png",
+      "xxhdpi": "miniapp/android/nativeResources/res/drawable-xxhdpi/splash.png"
+    },
+    "enableVConsole": "close",
+    "privacy": {
+      "enable": true
+    }
+  },
+  "mini-ios": {
+    "sdkVersion": "1.6.17",
+    "toolkitVersion": "0.0.9",
+    "bundleId": "com.studycheckin.app",
+    "useExtendedSdk": {
+      "WeAppOpenFuns": true,
+      "WeAppNetwork": false,
+      "WeAppBluetooth": false,
+      "WeAppMedia": false,
+      "WeAppLBS": false,
+      "WeAppOthers": false
+    },
+    "enableVConsole": "close",
+    "icons": {
+      "mainIcon120": "miniapp/ios/nativeResources/icon120.png",
+      "mainIcon180": "miniapp/ios/nativeResources/icon180.png",
+      "spotlightIcon80": "miniapp/ios/nativeResources/icon80.png",
+      "spotlightIcon120": "miniapp/ios/nativeResources/icon120.png",
+      "settingsIcon58": "miniapp/ios/nativeResources/icon58.png",
+      "settingsIcon87": "miniapp/ios/nativeResources/icon87.png",
+      "notificationIcon40": "miniapp/ios/nativeResources/icon40.png",
+      "notificationIcon60": "miniapp/ios/nativeResources/icon60.png",
+      "appStore1024": "miniapp/ios/nativeResources/icon1024.png"
+    },
+    "splashScreen": {
+      "customImage": "miniapp/ios/nativeResources/splash.png"
+    },
+    "privacy": {
+      "enable": true
+    },
+    "enableOpenUrlNavigate": true
+  }
+}

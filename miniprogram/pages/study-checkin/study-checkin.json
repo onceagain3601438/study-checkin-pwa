@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "学习打卡",
+  "navigationBarBackgroundColor": "#667eea",
+  "navigationBarTextStyle": "white",
+  "backgroundColor": "#f5f5f5",
+  "enablePullDownRefresh": true,
+  "onReachBottomDistance": 50
+} 

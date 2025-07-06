@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="专业的学习打卡管理工具，支持日历视图、学习计划管理、积分奖励系统">
-    <meta name="keywords" content="学习打卡,学习计划,积分奖励,学习管理">
+    <meta name="description" content="专业的学习打卡管理工具，支持语音提醒、日历视图、学习计划管理、积分奖励系统">
+    <meta name="keywords" content="学习打卡,学习计划,积分奖励,语音提醒,学习管理">
     <meta name="theme-color" content="#667eea">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="学习打卡">
     
-    <title>学习打卡 - 专业的学习管理工具</title>
+    <title>学习打卡 - 专业的学习管理工具 (含语音提醒)</title>
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json">
@@ -18,6 +18,9 @@
     <!-- 图标 -->
     <link rel="icon" href="/icon-72.png" sizes="72x72">
     <link rel="apple-touch-icon" href="/icon-192.png">
+    
+    <!-- 引入语音提醒模块 -->
+    <script src="voice-reminder.js"></script>
     
     <style>
         * {
@@ -33,6 +36,33 @@
             padding-bottom: 60px;
         }
         
+        /* 语音提醒指示器 */
+        .voice-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #51cf66, #69db7c);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1002;
+            animation: pulse 2s infinite;
+        }
+        
+        .voice-indicator.disabled {
+            background: #999;
+            animation: none;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
         /* 底部导航栏 */
         .bottom-nav {
             position: fixed;
@@ -301,13 +331,14 @@
             font-size: 11px;
         }
         
-        .time-slot-btn, .points-btn {
+        .time-slot-btn {
             padding: 3px 6px;
             border-radius: 3px;
             font-size: 10px;
             cursor: pointer;
             text-align: center;
             min-width: 50px;
+            position: relative;
         }
         
         .time-slot-btn.has-time {
@@ -319,6 +350,31 @@
             background: #f8f9fa;
             color: #666;
             border: 1px dashed #ddd;
+        }
+        
+        .time-slot-btn.has-reminder::after {
+            content: "🔊";
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            font-size: 8px;
+            background: #51cf66;
+            color: white;
+            border-radius: 50%;
+            width: 15px;
+            height: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .points-btn {
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            cursor: pointer;
+            text-align: center;
+            min-width: 50px;
         }
         
         .points-btn.has-points {
@@ -523,6 +579,11 @@
     </style>
 </head>
 <body>
+    <!-- 语音提醒状态指示器 -->
+    <div id="voiceIndicator" class="voice-indicator">
+        🔊 语音提醒已启用
+    </div>
+
     <!-- 日历页面 -->
     <div class="page active" id="calendarPage">
         <div class="header">
@@ -719,6 +780,7 @@
         let currentStudyDate = new Date();
         let studyData = {};
         let totalPoints = 0;
+        let voiceReminder = null;
 
         // 页面切换
         function switchPage(page) {
@@ -737,6 +799,19 @@
             }
         }
 
+        // 更新语音提醒状态指示器
+        function updateVoiceIndicator() {
+            const indicator = document.getElementById('voiceIndicator');
+            if (voiceReminder && voiceReminder.isEnabled) {
+                const stats = voiceReminder.getEnabledReminderStats();
+                indicator.textContent = `🔊 语音提醒已启用 (${stats.enabled}/${stats.total})`;
+                indicator.classList.remove('disabled');
+            } else {
+                indicator.textContent = '🔇 语音提醒已关闭';
+                indicator.classList.add('disabled');
+            }
+        }
+
         // 初始化
         function init() {
             loadData();
@@ -744,6 +819,18 @@
             updateCalendarDisplay();
             updateStudyDisplay();
             updatePointsDisplay();
+            
+            // 初始化语音提醒系统
+            if (typeof VoiceReminder !== 'undefined') {
+                voiceReminder = new VoiceReminder();
+                window.voiceReminder = voiceReminder;
+                updateVoiceIndicator();
+            }
+            
+            // 请求通知权限
+            if ('Notification' in window) {
+                Notification.requestPermission();
+            }
             
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('./sw.js');
@@ -919,7 +1006,7 @@
                             ${plan.tasks.map(task => `
                                 <div class="table-row">
                                     <div>
-                                        <div class="time-slot-btn ${task.timeSlot ? 'has-time' : 'no-time'}" 
+                                        <div class="time-slot-btn ${task.timeSlot ? 'has-time' : 'no-time'} ${task.timeSlot && voiceReminder?.isEnabled ? 'has-reminder' : ''}" 
                                              onclick="setTimeSlot(${plan.id}, ${task.id})">
                                             ${task.timeSlot || '设置'}
                                         </div>
@@ -959,6 +1046,11 @@
                     </div>
                 `).join('');
             }
+            
+            // 更新语音提醒
+            if (voiceReminder) {
+                voiceReminder.updateAllTaskReminders(studyData, currentStudyDate);
+            }
         }
 
         function changeDate(delta) {
@@ -979,6 +1071,11 @@
                 saveData();
                 updateTotalPoints();
                 updateStudyDisplay();
+                
+                // 播放完成提醒
+                if (task.studyCompleted && voiceReminder) {
+                    voiceReminder.playTaskCompleteReminder(task.name);
+                }
             }
         }
 
@@ -994,6 +1091,11 @@
                 saveData();
                 updateTotalPoints();
                 updateStudyDisplay();
+                
+                // 播放掌握提醒
+                if (task.masteredCompleted && voiceReminder) {
+                    voiceReminder.playTaskMasterReminder(task.name, task.earnedPoints);
+                }
             }
         }
 
@@ -1040,6 +1142,15 @@
                     task.timeSlot = timeSlot;
                     saveData();
                     updateStudyDisplay();
+                    
+                    // 设置语音提醒
+                    if (timeSlot && voiceReminder) {
+                        voiceReminder.setTaskReminder(task, plan.name);
+                        voiceReminder.playSettingConfirmReminder('timeSlot', {
+                            taskName: task.name,
+                            timeSlot: timeSlot
+                        });
+                    }
                 }
             }
         }
@@ -1059,6 +1170,11 @@
                     saveData();
                     updateTotalPoints();
                     updateStudyDisplay();
+                    
+                    // 播放设置确认提醒
+                    if (voiceReminder) {
+                        voiceReminder.playSettingConfirmReminder('points', points);
+                    }
                 }
             }
         }
@@ -1146,6 +1262,11 @@
             studyData[dateKey].push(plan);
             saveData();
             updateStudyDisplay();
+            
+            // 播放计划添加提醒
+            if (voiceReminder) {
+                voiceReminder.playPlanAddedReminder(planName, tasks.length);
+            }
         }
 
         document.getElementById('addPlanForm').addEventListener('submit', function(e) {
@@ -1209,5 +1330,4 @@
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
-</html> 
 </html> 

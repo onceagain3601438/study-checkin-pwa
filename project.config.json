@@ -1,0 +1,43 @@
+{
+  "description": "项目配置文件",
+  "miniprogramRoot": "miniprogram/",
+  "compileType": "miniprogram",
+  "setting": {
+    "useCompilerPlugins": [
+      "typescript"
+    ],
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    },
+    "coverView": false,
+    "postcss": false,
+    "minified": false,
+    "enhance": false,
+    "showShadowRootInWxmlPanel": false,
+    "packNpmRelationList": [],
+    "ignoreUploadUnusedFiles": true,
+    "compileHotReLoad": false,
+    "skylineRenderEnable": true,
+    "condition": true
+  },
+  "simulatorType": "wechat",
+  "simulatorPluginLibVersion": {
+    "wxext14566970e7e9f62": "3.8.9-1"
+  },
+  "condition": {},
+  "srcMiniprogramRoot": "miniprogram/",
+  "editorSetting": {
+    "tabIndent": "insertSpaces",
+    "tabSize": 2
+  },
+  "libVersion": "trial",
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "appid": "wx66fa60f2cbdf095b",
+  "projectname": "学习打卡小程序",
+  "projectArchitecture": "multiPlatform"
+}

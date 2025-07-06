@@ -1,0 +1,119 @@
+<!--学习打卡日历首页-->
+<view class="calendar-container">
+  <!-- 页面头部 -->
+  <view class="header">
+    <view class="header-content">
+      <text class="app-title">学习打卡日历</text>
+      <view class="total-points">
+        <text class="points-icon">🏆</text>
+        <text class="points-value">{{totalPoints}}</text>
+        <text class="points-unit">总积分</text>
+      </view>
+    </view>
+    
+    <!-- 励志话语 -->
+    <view class="motivational-section">
+      <text class="motivational-text">📅 每一天都是新的开始</text>
+      <text class="motivational-sub">坚持学习，让时间见证成长的力量 ✨</text>
+    </view>
+  </view>
+
+  <!-- 日历控制区域 -->
+  <view class="calendar-header">
+    <view class="month-navigation">
+      <view class="nav-btn" bindtap="onPrevMonth">
+        <text class="nav-icon">‹</text>
+      </view>
+      <view class="month-info">
+        <text class="current-month">{{currentYear}}年{{currentMonth}}月</text>
+      </view>
+      <view class="nav-btn" bindtap="onNextMonth">
+        <text class="nav-icon">›</text>
+      </view>
+    </view>
+    
+    <!-- 今日快捷入口 -->
+    <view class="quick-today" bindtap="onGoToToday">
+      <text class="today-icon">📍</text>
+      <text class="today-text">今日</text>
+    </view>
+  </view>
+
+  <!-- 日历主体 -->
+  <view class="calendar-main">
+    <!-- 星期标题 -->
+    <view class="week-header">
+      <view class="week-day">日</view>
+      <view class="week-day">一</view>
+      <view class="week-day">二</view>
+      <view class="week-day">三</view>
+      <view class="week-day">四</view>
+      <view class="week-day">五</view>
+      <view class="week-day">六</view>
+    </view>
+
+    <!-- 日历网格 -->
+    <view class="calendar-grid">
+      <view 
+        class="calendar-day {{item.isCurrentMonth ? 'current-month' : 'other-month'}} {{item.isToday ? 'today' : ''}} {{item.hasRecord ? 'has-record' : ''}}"
+        wx:for="{{calendarDays}}"
+        wx:key="dateString"
+        bindtap="onDateClick"
+        data-date="{{item.dateString}}">
+        
+        <!-- 日期数字 -->
+        <text class="day-number">{{item.day}}</text>
+        
+        <!-- 学习记录指示器 -->
+        <view class="record-indicators" wx:if="{{item.hasRecord}}">
+          <view class="indicator-dot completed" wx:if="{{item.recordInfo.hasCompleted}}"></view>
+          <view class="indicator-dot partial" wx:if="{{item.recordInfo.hasPartial && !item.recordInfo.hasCompleted}}"></view>
+        </view>
+        
+        <!-- 积分显示 -->
+        <text class="day-points" wx:if="{{item.recordInfo.earnedPoints > 0}}">{{item.recordInfo.earnedPoints}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 月度统计 -->
+  <view class="month-stats">
+    <view class="stats-header">
+      <text class="stats-title">{{currentMonth}}月学习统计</text>
+    </view>
+    <view class="stats-grid">
+      <view class="stat-item">
+        <text class="stat-number">{{monthStats.studyDays}}</text>
+        <text class="stat-label">学习天数</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-number">{{monthStats.completedTasks}}</text>
+        <text class="stat-label">完成任务</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-number">{{monthStats.totalPoints}}</text>
+        <text class="stat-label">月度积分</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-number">{{monthStats.avgCompletion}}%</text>
+        <text class="stat-label">平均完成率</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 快捷操作区域 -->
+  <view class="quick-actions">
+    <button class="quick-btn today-btn" bindtap="onGoToTodayStudy">
+      <text class="quick-icon">📚</text>
+      <text class="quick-text">今日学习</text>
+    </button>
+    <button class="quick-btn template-btn" bindtap="onGoToTemplate">
+      <text class="quick-icon">📝</text>
+      <text class="quick-text">学习模板</text>
+    </button>
+    <button class="quick-btn stats-btn" bindtap="onShowDetailStats">
+      <text class="quick-icon">📊</text>
+      <text class="quick-text">学习统计</text>
+    </button>
+  </view>
+</view>

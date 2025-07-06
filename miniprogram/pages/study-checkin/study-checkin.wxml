@@ -1,0 +1,227 @@
+<!--学习打卡页面-->
+<view class="checkin-container">
+  <!-- 页面标题和日期 -->
+  <view class="header">
+    <view class="date-section">
+      <text class="current-date">{{currentDateText}}</text>
+      <view class="date-navigation">
+        <view class="nav-btn" bindtap="onPrevDay">
+          <text class="nav-icon">‹</text>
+        </view>
+        <view class="nav-btn" bindtap="onNextDay">
+          <text class="nav-icon">›</text>
+        </view>
+      </view>
+    </view>
+    <view class="header-content">
+      <text class="page-title">学习计划</text>
+      <view class="total-points">
+        <text class="points-icon">🏆</text>
+        <text class="points-value">{{totalPoints}}</text>
+        <text class="points-unit">总积分</text>
+      </view>
+    </view>
+    
+    <!-- 励志话语区域 -->
+    <view class="motivational-section">
+      <text class="motivational-text">💪 坚持每一天，成就更好的自己！</text>
+      <text class="motivational-sub">每一份努力都不会白费，每一次坚持都是成长 ✨</text>
+    </view>
+  </view>
+
+  <!-- 学习计划列表 -->
+  <view class="study-plans">
+    <view 
+      class="plan-item"
+      wx:for="{{studyPlans}}"
+      wx:key="id">
+      
+      <!-- 计划标题 -->
+      <view class="plan-header">
+        <view class="plan-title">
+          <text class="plan-name">{{item.name}}</text>
+          <view class="plan-actions">
+            <view class="action-icon" bindtap="onSavePlanAsTemplate" data-plan="{{item}}">
+              <text>📝</text>
+            </view>
+            <view class="action-icon" bindtap="onEditPlan" data-plan="{{item}}">
+              <text>✏️</text>
+            </view>
+            <view class="action-icon" bindtap="onDeletePlan" data-plan="{{item}}">
+              <text>🗑️</text>
+            </view>
+          </view>
+        </view>
+        <text class="plan-description" wx:if="{{item.description}}">{{item.description}}</text>
+      </view>
+
+      <!-- 学习任务表格 -->
+      <view class="tasks-table">
+        <!-- 表格头部 -->
+        <view class="table-header">
+          <view class="col time-slot">时间段</view>
+          <view class="col task-name">任务</view>
+          <view class="col study">学习</view>
+          <view class="col master">掌握</view>
+          <view class="col points">积分</view>
+        </view>
+
+        <!-- 任务行 -->
+        <view 
+          class="table-row"
+          wx:for="{{item.tasks}}"
+          wx:for-item="task"
+          wx:key="id">
+          
+          <!-- 时间段 -->
+          <view class="col time-slot">
+            <view 
+              class="time-slot-btn {{task.timeSlot ? 'has-time' : 'no-time'}}"
+              bindtap="onSetTimeSlot"
+              data-plan-id="{{item.id}}"
+              data-task-id="{{task.id}}">
+              <text wx:if="{{task.timeSlot}}">{{task.timeSlot}}</text>
+              <text wx:else>设置时间</text>
+            </view>
+          </view>
+          
+          <!-- 任务名称 -->
+          <view class="col task-name">
+            <view class="task-content">
+              <text 
+                class="task-text"
+                bindtap="onEditTask"
+                data-plan-id="{{item.id}}"
+                data-task-id="{{task.id}}">
+                {{task.name}}
+              </text>
+              <view class="task-delete-btn" bindtap="onDeleteTask" data-plan-id="{{item.id}}" data-task-id="{{task.id}}">
+                <text class="delete-icon">🗑️</text>
+              </view>
+            </view>
+          </view>
+          
+          <!-- 学习 -->
+          <view class="col study">
+            <view 
+              class="checkbox {{task.studyCompleted ? 'checked' : ''}}"
+              bindtap="onToggleStudy"
+              data-plan-id="{{item.id}}"
+              data-task-id="{{task.id}}">
+              <text class="check-mark" wx:if="{{task.studyCompleted}}">✓</text>
+            </view>
+          </view>
+          
+          <!-- 掌握 -->
+          <view class="col master">
+            <view 
+              class="checkbox {{task.masteredCompleted ? 'checked' : ''}}"
+              bindtap="onToggleMaster"
+              data-plan-id="{{item.id}}"
+              data-task-id="{{task.id}}">
+              <text class="check-mark" wx:if="{{task.masteredCompleted}}">✓</text>
+            </view>
+          </view>
+          
+          <!-- 积分 -->
+          <view class="col points">
+            <view 
+              class="points-btn {{task.points > 0 ? 'has-points' : 'no-points'}}"
+              bindtap="onSetPoints"
+              data-plan-id="{{item.id}}"
+              data-task-id="{{task.id}}">
+              <view wx:if="{{task.points > 0}}">
+                <view class="points-total">{{task.points}}分</view>
+                <view class="points-detail">({{task.earnedPoints}}/{{task.points}})</view>
+              </view>
+              <text wx:else>设置积分</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 添加任务按钮 -->
+        <view class="add-task-row">
+          <button 
+            class="add-task-btn"
+            bindtap="onAddTask"
+            data-plan-id="{{item.id}}">
+            + 添加任务
+          </button>
+        </view>
+      </view>
+
+      <!-- 计划完成度 -->
+      <view class="plan-progress">
+        <view class="progress-info">
+          <text class="progress-text">完成度: {{item.completionRate}}%</text>
+          <text class="task-count">{{item.completedTasks}}/{{item.totalTasks}} 项任务</text>
+        </view>
+        <view class="points-info">
+          <text class="points-text">积分: {{item.earnedPoints}}/{{item.totalPoints}} 分</text>
+        </view>
+        <view class="progress-bar">
+          <view 
+            class="progress-fill"
+            style="width: {{item.completionRate}}%">
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{studyPlans.length === 0}}">
+    <text class="empty-icon">📚</text>
+    <text class="empty-title">还没有学习计划</text>
+    <text class="empty-desc">点击下方按钮创建你的第一个学习计划</text>
+  </view>
+
+  <!-- 快速操作区域 -->
+  <view class="quick-actions" wx:if="{{studyPlans.length === 0}}">
+    <button class="quick-btn copy-btn" bindtap="onCopyYesterday">
+      <text class="quick-icon">📋</text>
+      <text class="quick-text">复制昨天</text>
+    </button>
+    <button class="quick-btn template-btn" bindtap="onLoadTemplate">
+      <text class="quick-icon">📝</text>
+      <text class="quick-text">加载模板</text>
+    </button>
+    <button class="quick-btn default-btn" bindtap="onLoadDefault">
+      <text class="quick-icon">⭐</text>
+      <text class="quick-text">默认计划</text>
+    </button>
+  </view>
+
+  <!-- 添加计划按钮 -->
+  <view class="add-plan-section">
+    <button class="add-plan-btn" bindtap="onAddPlan">
+      <text class="add-icon">+</text>
+      <text class="add-text">添加学习计划</text>
+    </button>
+  </view>
+
+  <!-- 今日总结 -->
+  <view class="daily-summary" wx:if="{{studyPlans.length > 0}}">
+    <view class="summary-header">
+      <text class="summary-title">今日总结</text>
+    </view>
+    <view class="summary-stats">
+      <view class="stat-item">
+        <text class="stat-number">{{dailyStats.totalPlans}}</text>
+        <text class="stat-label">学习计划</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-number">{{dailyStats.completedTasks}}</text>
+        <text class="stat-label">完成任务</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-number">{{dailyStats.completionRate}}%</text>
+        <text class="stat-label">完成率</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-number earned-points">{{dailyStats.earnedPoints}}</text>
+        <text class="stat-label">获得积分</text>
+      </view>
+    </view>
+  </view>
+</view> 

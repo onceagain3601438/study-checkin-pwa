@@ -1,0 +1,765 @@
+/* 学习打卡页面样式 - 以学习计划为主体 */
+.checkin-container {
+  padding: 20rpx;
+  background-color: #f5f5f5;
+  min-height: 100vh;
+}
+
+/* 页面标题和日期 */
+.header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20rpx;
+  padding: 30rpx;
+  margin-bottom: 30rpx;
+  color: white;
+  box-shadow: 0 4rpx 20rpx rgba(102, 126, 234, 0.3);
+}
+
+.date-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15rpx;
+}
+
+.current-date {
+  font-size: 36rpx;
+  font-weight: bold;
+}
+
+.date-navigation {
+  display: flex;
+  gap: 10rpx;
+}
+
+.nav-btn {
+  width: 60rpx;
+  height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transition: all 0.3s;
+}
+
+.nav-btn:active {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(0.95);
+}
+
+.nav-icon {
+  font-size: 32rpx;
+  color: white;
+  font-weight: bold;
+}
+
+.page-title {
+  font-size: 44rpx;
+  font-weight: bold;
+  text-align: center;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.total-points {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 25rpx;
+  padding: 10rpx 20rpx;
+  backdrop-filter: blur(10rpx);
+  border: 1rpx solid rgba(255, 255, 255, 0.3);
+}
+
+.points-icon {
+  font-size: 28rpx;
+  margin-right: 8rpx;
+}
+
+.points-value {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.3);
+  margin-right: 5rpx;
+}
+
+.points-unit {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+/* 学习计划列表 */
+.study-plans {
+  margin-bottom: 30rpx;
+}
+
+.plan-item {
+  background: white;
+  border-radius: 20rpx;
+  margin-bottom: 30rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+.plan-item:active {
+  transform: scale(0.98);
+}
+
+/* 计划标题 */
+.plan-header {
+  padding: 30rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+  background: linear-gradient(135deg, #f8f9ff, #ffffff);
+}
+
+.plan-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10rpx;
+}
+
+.plan-name {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  flex: 1;
+}
+
+.plan-actions {
+  display: flex;
+  gap: 15rpx;
+}
+
+.action-icon {
+  width: 50rpx;
+  height: 50rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(102, 126, 234, 0.1);
+  transition: all 0.3s;
+}
+
+.action-icon:active {
+  background: rgba(102, 126, 234, 0.2);
+  transform: scale(0.9);
+}
+
+.plan-description {
+  font-size: 26rpx;
+  color: #666;
+  line-height: 1.6;
+}
+
+/* 任务表格 */
+.tasks-table {
+  padding: 0 30rpx;
+}
+
+.table-header {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 2rpx solid #667eea;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  margin: 0 -30rpx;
+  padding: 20rpx 30rpx;
+}
+
+.table-header .col {
+  color: white;
+  font-weight: bold;
+  font-size: 28rpx;
+}
+
+.table-row {
+  display: flex;
+  align-items: center;
+  padding: 25rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+  transition: all 0.3s;
+}
+
+.table-row:hover {
+  background: #f8f9ff;
+}
+
+.col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  color: #333;
+}
+
+.col.task-name {
+  flex: 2;
+  justify-content: flex-start;
+  padding-right: 20rpx;
+}
+
+.col.time-slot {
+  flex: 1.5;
+}
+
+.col.study,
+.col.master,
+.col.points {
+  flex: 0.8;
+}
+
+.task-text {
+  font-weight: 500;
+  line-height: 1.4;
+  flex: 1;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 8rpx 12rpx;
+  border-radius: 6rpx;
+  border: 1rpx solid transparent;
+}
+
+.task-text:hover {
+  background-color: #f8f9ff;
+  border-color: #e0e7ff;
+}
+
+.task-text:active {
+  background-color: #e0e7ff;
+  transform: scale(0.98);
+}
+
+/* 任务内容容器 */
+.task-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* 任务删除按钮 */
+.task-delete-btn {
+  width: 32rpx;
+  height: 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 75, 75, 0.1);
+  margin-left: 10rpx;
+  transition: all 0.3s;
+  opacity: 0.7;
+}
+
+.task-delete-btn:active {
+  background: rgba(255, 75, 75, 0.2);
+  transform: scale(0.9);
+  opacity: 1;
+}
+
+.delete-icon {
+  font-size: 20rpx;
+}
+
+/* 时间段按钮样式 */
+.time-slot-btn {
+  padding: 8rpx 12rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  text-align: center;
+  transition: all 0.3s;
+  min-width: 80rpx;
+  cursor: pointer;
+}
+
+.time-slot-btn.has-time {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  font-weight: bold;
+}
+
+.time-slot-btn.no-time {
+  background: #f8f9fa;
+  color: #666;
+  border: 1rpx dashed #ddd;
+}
+
+.time-slot-btn:active {
+  transform: scale(0.95);
+}
+
+/* 复选框样式 */
+.checkbox {
+  width: 40rpx;
+  height: 40rpx;
+  border: 2rpx solid #ddd;
+  border-radius: 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.checkbox.checked {
+  background: linear-gradient(135deg, #51cf66, #69db7c);
+  border-color: #51cf66;
+}
+
+.check-mark {
+  color: white;
+  font-size: 24rpx;
+  font-weight: bold;
+}
+
+.checkbox:active {
+  transform: scale(0.9);
+}
+
+/* 添加任务按钮 */
+.add-task-row {
+  padding: 20rpx 0;
+  text-align: center;
+}
+
+.add-task-btn {
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  color: white;
+  border: none;
+  border-radius: 20rpx;
+  padding: 15rpx 30rpx;
+  font-size: 26rpx;
+  font-weight: bold;
+  transition: all 0.3s;
+}
+
+.add-task-btn:active {
+  transform: scale(0.95);
+}
+
+/* 计划进度 */
+.plan-progress {
+  padding: 30rpx;
+  background: linear-gradient(135deg, #f8f9ff, #ffffff);
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15rpx;
+}
+
+.progress-text {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.task-count {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.progress-bar {
+  height: 12rpx;
+  background: #e9ecef;
+  border-radius: 6rpx;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-radius: 6rpx;
+  transition: width 0.5s ease;
+}
+
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: 100rpx 40rpx;
+  background: white;
+  border-radius: 20rpx;
+  margin-bottom: 30rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.08);
+}
+
+.empty-icon {
+  font-size: 80rpx;
+  display: block;
+  margin-bottom: 20rpx;
+}
+
+.empty-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  display: block;
+  margin-bottom: 10rpx;
+}
+
+.empty-desc {
+  font-size: 26rpx;
+  color: #666;
+  line-height: 1.6;
+}
+
+/* 快速操作区域 */
+.quick-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-bottom: 30rpx;
+}
+
+.quick-btn {
+  flex: 1;
+  height: 80rpx;
+  border-radius: 15rpx;
+  font-size: 26rpx;
+  font-weight: bold;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.1);
+}
+
+.quick-btn:active {
+  transform: scale(0.95);
+}
+
+.copy-btn {
+  background: linear-gradient(135deg, #a8edea, #fed6e3);
+  color: #333;
+}
+
+.template-btn {
+  background: linear-gradient(135deg, #ffecd2, #fcb69f);
+  color: #333;
+}
+
+.default-btn {
+  background: linear-gradient(135deg, #ffc3a0, #ffafbd);
+  color: #333;
+}
+
+.quick-icon {
+  font-size: 24rpx;
+  margin-bottom: 5rpx;
+}
+
+.quick-text {
+  font-size: 22rpx;
+  font-weight: bold;
+}
+
+/* 添加计划按钮 */
+.add-plan-section {
+  margin-bottom: 30rpx;
+}
+
+.add-plan-btn {
+  width: 100%;
+  height: 100rpx;
+  background: linear-gradient(135deg, #4facfe, #00f2fe);
+  color: white;
+  border-radius: 20rpx;
+  font-size: 32rpx;
+  font-weight: bold;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 20rpx rgba(79, 172, 254, 0.3);
+  transition: all 0.3s;
+}
+
+.add-plan-btn:active {
+  transform: scale(0.98);
+  box-shadow: 0 2rpx 10rpx rgba(79, 172, 254, 0.2);
+}
+
+.add-icon {
+  font-size: 40rpx;
+  margin-right: 10rpx;
+  font-weight: bold;
+}
+
+.add-text {
+  font-size: 32rpx;
+  font-weight: bold;
+}
+
+/* 今日总结 */
+.daily-summary {
+  background: white;
+  border-radius: 20rpx;
+  padding: 30rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.08);
+}
+
+.summary-header {
+  text-align: center;
+  margin-bottom: 30rpx;
+}
+
+.summary-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.summary-stats {
+  display: flex;
+  justify-content: space-around;
+}
+
+.stat-item {
+  text-align: center;
+  flex: 1;
+}
+
+.stat-number {
+  display: block;
+  font-size: 48rpx;
+  font-weight: bold;
+  color: #667eea;
+  margin-bottom: 10rpx;
+}
+
+.stat-number.earned-points {
+  color: #ff6b35;
+  background: linear-gradient(135deg, #ffd700, #ffb300);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stat-label {
+  font-size: 24rpx;
+  color: #666;
+}
+
+/* 积分按钮样式 */
+.points-btn {
+  padding: 8rpx 12rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  text-align: center;
+  transition: all 0.3s;
+  min-width: 60rpx;
+  cursor: pointer;
+}
+
+.points-btn.has-points {
+  background: linear-gradient(135deg, #ffd700, #ffb300);
+  color: white;
+  font-weight: bold;
+}
+
+.points-btn.no-points {
+  background: #f8f9fa;
+  color: #666;
+  border: 1rpx dashed #ddd;
+}
+
+.points-btn:active {
+  transform: scale(0.95);
+}
+
+/* 积分详细显示样式 */
+.points-total {
+  font-size: 20rpx;
+  font-weight: bold;
+  line-height: 1.2;
+}
+
+.points-detail {
+  font-size: 16rpx;
+  opacity: 0.9;
+  line-height: 1;
+  margin-top: 2rpx;
+}
+
+/* 积分信息样式 */
+.points-info {
+  margin-top: 8rpx;
+  text-align: center;
+}
+
+.points-text {
+  font-size: 24rpx;
+  color: #ff6b35;
+  font-weight: bold;
+}
+
+/* 响应式设计 */
+@media (max-width: 750rpx) {
+  .table-header,
+  .table-row {
+    font-size: 22rpx;
+  }
+  
+  .col.time-slot {
+    flex: 1.2;
+  }
+  
+  .col.task-name {
+    flex: 1.5;
+  }
+  
+  .col.study,
+  .col.master,
+  .col.points {
+    flex: 0.7;
+  }
+  
+  .checkbox {
+    width: 32rpx;
+    height: 32rpx;
+  }
+  
+  .check-mark {
+    font-size: 20rpx;
+  }
+  
+  .time-slot-btn {
+    padding: 6rpx 8rpx;
+    font-size: 20rpx;
+    min-width: 70rpx;
+  }
+  
+  .points-btn {
+    padding: 6rpx 8rpx;
+    font-size: 20rpx;
+    min-width: 50rpx;
+  }
+  
+  .task-delete-btn {
+    width: 28rpx;
+    height: 28rpx;
+  }
+  
+  .delete-icon {
+    font-size: 18rpx;
+  }
+  
+  .task-text {
+    font-size: 22rpx;
+  }
+  
+  .points-text {
+    font-size: 22rpx;
+  }
+  
+  /* 总积分响应式样式 */
+  .header-content {
+    flex-direction: column;
+    gap: 15rpx;
+  }
+  
+  .page-title {
+    font-size: 36rpx;
+  }
+  
+  .total-points {
+    padding: 8rpx 16rpx;
+  }
+  
+  .points-icon {
+    font-size: 24rpx;
+  }
+  
+  .points-value {
+    font-size: 28rpx;
+  }
+  
+  .points-unit {
+    font-size: 22rpx;
+  }
+  
+  /* 快速操作按钮响应式 */
+  .quick-actions {
+    gap: 15rpx;
+  }
+  
+  .quick-btn {
+    height: 70rpx;
+    font-size: 24rpx;
+  }
+  
+  .quick-icon {
+    font-size: 20rpx;
+    margin-bottom: 3rpx;
+  }
+  
+  .quick-text {
+    font-size: 20rpx;
+  }
+  
+  .points-total {
+    font-size: 18rpx;
+  }
+  
+  .points-detail {
+    font-size: 14rpx;
+  }
+  
+  /* 励志话语响应式样式 */
+  .motivational-section {
+    margin-top: 15rpx;
+    padding: 12rpx 16rpx;
+  }
+  
+  .motivational-text {
+    font-size: 24rpx;
+    margin-bottom: 6rpx;
+  }
+  
+  .motivational-sub {
+    font-size: 20rpx;
+  }
+}
+
+/* 励志话语区域样式 */
+.motivational-section {
+  text-align: center;
+  margin-top: 20rpx;
+  padding: 15rpx 20rpx;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 15rpx;
+  backdrop-filter: blur(10rpx);
+  border: 1rpx solid rgba(255, 255, 255, 0.2);
+}
+
+.motivational-text {
+  display: block;
+  font-size: 28rpx;
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.2);
+  margin-bottom: 8rpx;
+  line-height: 1.4;
+}
+
+.motivational-sub {
+  display: block;
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.2);
+  line-height: 1.5;
+  font-weight: 400;
+} 
