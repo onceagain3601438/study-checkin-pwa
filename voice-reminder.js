@@ -113,8 +113,10 @@ class VoiceReminder {
      * 播放语音提醒
      * @param {string} text - 要播放的文本
      * @param {string} type - 提醒类型（可选）
+     * @param {number} repeatCount - 重复播放次数（默认3次）
+     * @param {number} currentRepeat - 当前播放次数（内部使用）
      */
-    speak(text, type = null) {
+    speak(text, type = null, repeatCount = 3, currentRepeat = 1) {
         // 如果指定了类型，检查该类型是否启用
         if (type && !this.canPlayReminder(type)) {
             return;
@@ -136,15 +138,31 @@ class VoiceReminder {
 
         // 添加事件监听
         utterance.onstart = () => {
-            console.log('语音提醒开始播放:', text, type ? `(${type})` : '');
+            console.log(`语音提醒开始播放 (${currentRepeat}/${repeatCount}):`, text, type ? `(${type})` : '');
         };
 
         utterance.onend = () => {
-            console.log('语音提醒播放完成');
+            console.log(`语音提醒播放完成 (${currentRepeat}/${repeatCount})`);
+            
+            // 如果还需要重复播放，递归调用
+            if (currentRepeat < repeatCount) {
+                // 添加短暂延迟，让声音更清晰
+                setTimeout(() => {
+                    this.speak(text, type, repeatCount, currentRepeat + 1);
+                }, 800); // 延迟800毫秒
+            } else {
+                console.log('所有语音提醒播放完成');
+            }
         };
 
         utterance.onerror = (e) => {
             console.error('语音提醒播放错误:', e);
+            // 如果出错但还需要重复播放，尝试继续播放
+            if (currentRepeat < repeatCount) {
+                setTimeout(() => {
+                    this.speak(text, type, repeatCount, currentRepeat + 1);
+                }, 1000);
+            }
         };
 
         speechSynthesis.speak(utterance);
@@ -669,7 +687,8 @@ class VoiceReminder {
         this.rate = parseFloat(document.getElementById('voiceRate').value);
         this.pitch = parseFloat(document.getElementById('voicePitch').value);
         
-        this.speak('这是语音提醒测试，您的设置效果很好！');
+        // 测试语音只播放一次
+        this.speak('这是语音提醒测试，您的设置效果很好！', null, 1);
         
         // 恢复原设置
         this.volume = tempVolume;
