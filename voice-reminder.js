@@ -477,7 +477,7 @@ class VoiceReminder {
     addVoiceReminderUI() {
         // 创建语音提醒设置按钮
         const settingsHTML = `
-            <div id="voiceReminderSettings" style="position: fixed; bottom: 70px; right: 10px; z-index: 1001;">
+            <div id="voiceReminderSettings" style="position: fixed; bottom: 70px; left: 160px; z-index: 1001;">
                 <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 10px; border-radius: 50%; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3); font-size: 16px;" onclick="toggleVoiceSettings()">
                     🔊
                 </div>
