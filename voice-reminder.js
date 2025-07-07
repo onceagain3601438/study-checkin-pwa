@@ -477,9 +477,15 @@ class VoiceReminder {
         // 清除现有提醒
         this.clearTaskReminder(reminderId);
 
+        // 预定义变量，避免作用域问题
+        let startTimerId = null;
+        let endTimerId = null;
+        let startTime = null;
+        let endTime = null;
+
         // 设置学习开始提醒（仅当启用时）
         if (this.reminderTypes.studyStart) {
-            const startTime = this.getNextReminderTime(timeInfo);
+            startTime = this.getNextReminderTime(timeInfo);
             const delay = startTime.getTime() - Date.now();
             
             console.log('设置学习开始提醒:', {
@@ -494,7 +500,7 @@ class VoiceReminder {
             }
             
             // 本地定时器（页面活跃时使用）
-            const startTimerId = setTimeout(() => {
+            startTimerId = setTimeout(() => {
                 console.log('触发学习开始提醒:', task.name);
                 this.playStartReminder(task, planName, timeInfo);
                 // 在学习开始时请求Wake Lock
@@ -517,43 +523,45 @@ class VoiceReminder {
             } else {
                 console.warn('Service Worker未准备就绪，无法设置后台提醒');
             }
+        }
 
-            // 设置学习结束提醒（仅当启用时）
-            let endTimerId = null;
-            if (this.reminderTypes.studyEnd) {
-                const endTime = new Date(startTime);
-                endTime.setHours(timeInfo.end.hour, timeInfo.end.minute, 0, 0);
-                const endDelay = endTime.getTime() - Date.now();
-                
-                console.log('设置学习结束提醒:', {
-                    endTime: endTime.toLocaleString(),
-                    endDelay: endDelay,
-                    endDelayMinutes: Math.round(endDelay / 60000)
+        // 设置学习结束提醒（仅当启用时）
+        if (this.reminderTypes.studyEnd && startTime) {
+            endTime = new Date(startTime);
+            endTime.setHours(timeInfo.end.hour, timeInfo.end.minute, 0, 0);
+            const endDelay = endTime.getTime() - Date.now();
+            
+            console.log('设置学习结束提醒:', {
+                endTime: endTime.toLocaleString(),
+                endDelay: endDelay,
+                endDelayMinutes: Math.round(endDelay / 60000)
+            });
+            
+            // 本地定时器
+            endTimerId = setTimeout(() => {
+                console.log('触发学习结束提醒:', task.name);
+                this.playEndReminder(task, planName);
+                // 在学习结束时释放Wake Lock
+                this.releaseWakeLock();
+            }, endDelay);
+
+            // Service Worker定时器
+            if (this.serviceWorkerReady) {
+                navigator.serviceWorker.controller?.postMessage({
+                    type: 'SCHEDULE_REMINDER',
+                    reminder: {
+                        id: `${reminderId}_end`,
+                        title: '学习结束提醒',
+                        body: `${task.name}学习时间结束了，休息一下吧！`,
+                        triggerTime: endTime.toISOString(),
+                        type: 'studyEnd'
+                    }
                 });
-                
-                // 本地定时器
-                endTimerId = setTimeout(() => {
-                    console.log('触发学习结束提醒:', task.name);
-                    this.playEndReminder(task, planName);
-                    // 在学习结束时释放Wake Lock
-                    this.releaseWakeLock();
-                }, endDelay);
-
-                // Service Worker定时器
-                if (this.serviceWorkerReady) {
-                    navigator.serviceWorker.controller?.postMessage({
-                        type: 'SCHEDULE_REMINDER',
-                        reminder: {
-                            id: `${reminderId}_end`,
-                            title: '学习结束提醒',
-                            body: `${task.name}学习时间结束了，休息一下吧！`,
-                            triggerTime: endTime.toISOString(),
-                            type: 'studyEnd'
-                        }
-                    });
-                }
             }
+        }
 
+        // 只有当至少有一个提醒被设置时才存储定时器信息
+        if (startTimerId || endTimerId) {
             // 存储定时器ID
             this.timers.set(reminderId, {
                 startTimer: startTimerId,
@@ -567,7 +575,7 @@ class VoiceReminder {
             console.log(`✅ 任务提醒设置完成: ${task.name} (${task.timeSlot})`);
             console.log('当前活动提醒数量:', this.timers.size);
         } else {
-            console.log('学习开始提醒被禁用，跳过设置');
+            console.log('所有提醒类型都被禁用，跳过设置');
         }
     }
 
