@@ -25,6 +25,8 @@ class VoiceReminder {
         this.wakeLock = null; // Wake Lock 对象
         this.isPageVisible = true; // 页面可见性状态
         this.serviceWorkerReady = false; // Service Worker 状态
+        this.isPlaying = false; // 播放状态
+        this.engineActivated = false; // 语音引擎激活状态
         
         this.init();
     }
@@ -282,55 +284,164 @@ class VoiceReminder {
      * @param {number} currentRepeat - 当前播放次数（内部使用）
      */
     speak(text, type = null, repeatCount = 3, currentRepeat = 1) {
+        console.log(`🔊 尝试播放语音: "${text}", 类型: ${type}, 重复: ${currentRepeat}/${repeatCount}`);
+        
         // 如果指定了类型，检查该类型是否启用
         if (type && !this.canPlayReminder(type)) {
+            console.log(`❌ 语音类型 ${type} 被禁用，跳过播放`);
             return;
         }
         
         // 如果没有指定类型，检查主开关
         if (!type && (!this.isEnabled || !('speechSynthesis' in window))) {
+            console.log(`❌ 语音功能被禁用或不支持，跳过播放`);
+            return;
+        }
+
+        // 检查并激活语音引擎
+        if (!this.activateSpeechSynthesis()) {
+            console.error('❌ 无法激活语音引擎');
             return;
         }
 
         // 停止当前播放
-        speechSynthesis.cancel();
+        try {
+            speechSynthesis.cancel();
+            console.log('🛑 已停止当前语音播放');
+        } catch (error) {
+            console.warn('⚠️ 停止语音播放时出错:', error);
+        }
 
+        // 创建语音合成实例
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.volume = this.volume;
         utterance.rate = this.rate;
         utterance.pitch = this.pitch;
         utterance.lang = 'zh-CN';
 
-        // 添加事件监听
+        // 添加详细的事件监听
         utterance.onstart = () => {
-            console.log(`语音提醒开始播放 (${currentRepeat}/${repeatCount}):`, text, type ? `(${type})` : '');
+            console.log(`✅ 语音开始播放 (${currentRepeat}/${repeatCount}): "${text}"`);
+            this.isPlaying = true;
         };
 
         utterance.onend = () => {
-            console.log(`语音提醒播放完成 (${currentRepeat}/${repeatCount})`);
+            console.log(`✅ 语音播放完成 (${currentRepeat}/${repeatCount})`);
+            this.isPlaying = false;
             
             // 如果还需要重复播放，递归调用
             if (currentRepeat < repeatCount) {
-                // 添加短暂延迟，让声音更清晰
+                console.log(`🔄 准备播放下一次 (${currentRepeat + 1}/${repeatCount})`);
                 setTimeout(() => {
                     this.speak(text, type, repeatCount, currentRepeat + 1);
                 }, 800); // 延迟800毫秒
             } else {
-                console.log('所有语音提醒播放完成');
+                console.log('🎉 所有语音提醒播放完成');
             }
         };
 
         utterance.onerror = (e) => {
-            console.error('语音提醒播放错误:', e);
+            console.error(`💥 语音播放错误 (${currentRepeat}/${repeatCount}):`, e);
+            this.isPlaying = false;
+            
+            // 尝试重新激活语音引擎
+            this.activateSpeechSynthesis();
+            
             // 如果出错但还需要重复播放，尝试继续播放
             if (currentRepeat < repeatCount) {
+                console.log(`🔄 语音播放出错，尝试重新播放 (${currentRepeat + 1}/${repeatCount})`);
                 setTimeout(() => {
                     this.speak(text, type, repeatCount, currentRepeat + 1);
                 }, 1000);
             }
         };
 
-        speechSynthesis.speak(utterance);
+        utterance.onpause = () => {
+            console.log('⏸️ 语音播放暂停');
+        };
+
+        utterance.onresume = () => {
+            console.log('▶️ 语音播放恢复');
+        };
+
+        // 尝试播放语音
+        try {
+            console.log(`🎯 开始播放语音: "${text}"`);
+            speechSynthesis.speak(utterance);
+            
+            // 检查播放状态
+            setTimeout(() => {
+                if (!speechSynthesis.speaking && !this.isPlaying) {
+                    console.warn('⚠️ 语音可能被浏览器阻止，尝试重新播放');
+                    this.handleBlockedSpeech(text, type, repeatCount, currentRepeat);
+                }
+            }, 100);
+            
+        } catch (error) {
+            console.error('💥 语音播放异常:', error);
+            this.handleBlockedSpeech(text, type, repeatCount, currentRepeat);
+        }
+    }
+
+    /**
+     * 激活语音合成引擎
+     * 解决浏览器自动播放策略问题
+     */
+    activateSpeechSynthesis() {
+        if (!('speechSynthesis' in window)) {
+            console.error('❌ 浏览器不支持语音合成');
+            return false;
+        }
+
+        try {
+            // 检查语音合成是否可用
+            const voices = speechSynthesis.getVoices();
+            console.log(`🎤 可用语音数量: ${voices.length}`);
+            
+            // 如果没有语音，尝试触发语音列表加载
+            if (voices.length === 0) {
+                console.log('📋 正在加载语音列表...');
+                speechSynthesis.addEventListener('voiceschanged', () => {
+                    const newVoices = speechSynthesis.getVoices();
+                    console.log(`🎤 语音列表已更新，可用语音数量: ${newVoices.length}`);
+                }, { once: true });
+            }
+
+            // 创建一个静音的测试语音来激活引擎
+            if (!this.engineActivated) {
+                console.log('🔧 激活语音引擎...');
+                const testUtterance = new SpeechSynthesisUtterance('');
+                testUtterance.volume = 0;
+                speechSynthesis.speak(testUtterance);
+                this.engineActivated = true;
+                console.log('✅ 语音引擎已激活');
+            }
+
+            return true;
+        } catch (error) {
+            console.error('💥 激活语音引擎失败:', error);
+            return false;
+        }
+    }
+
+    /**
+     * 处理被阻止的语音播放
+     */
+    handleBlockedSpeech(text, type, repeatCount, currentRepeat) {
+        console.warn('⚠️ 语音可能被浏览器阻止，显示提示');
+        
+        // 显示用户友好的提示
+        const alertMsg = `🔊 语音提醒被浏览器阻止\n\n请点击"确定"激活语音功能\n\n内容: ${text}`;
+        
+        if (confirm(alertMsg)) {
+            console.log('🎯 用户确认激活语音，重新尝试播放');
+            
+            // 用户交互后重新尝试播放
+            this.engineActivated = false; // 重置引擎状态
+            setTimeout(() => {
+                this.speak(text, type, repeatCount, currentRepeat);
+            }, 100);
+        }
     }
 
     /**
@@ -1000,6 +1111,8 @@ class VoiceReminder {
      * 测试语音
      */
     testVoice() {
+        console.log('🧪 开始语音测试...');
+        
         // 临时更新设置用于测试
         const tempVolume = this.volume;
         const tempRate = this.rate;
@@ -1009,13 +1122,97 @@ class VoiceReminder {
         this.rate = parseFloat(document.getElementById('voiceRate').value);
         this.pitch = parseFloat(document.getElementById('voicePitch').value);
         
-        // 测试语音只播放一次
-        this.speak('这是语音提醒测试，您的设置效果很好！', null, 1);
+        console.log('🎛️ 测试参数:', {
+            volume: this.volume,
+            rate: this.rate,
+            pitch: this.pitch
+        });
+        
+        // 强制激活语音引擎
+        this.engineActivated = false;
+        if (!this.activateSpeechSynthesis()) {
+            alert('❌ 语音引擎激活失败！\n\n可能原因：\n1. 浏览器不支持语音功能\n2. 请尝试刷新页面\n3. 更换浏览器（推荐Chrome）');
+            return;
+        }
+        
+        // 测试语音只播放一次，使用强制模式
+        console.log('🎯 播放测试语音...');
+        this.speakForced('这是语音提醒测试，您的设置效果很好！');
         
         // 恢复原设置
-        this.volume = tempVolume;
-        this.rate = tempRate;
-        this.pitch = tempPitch;
+        setTimeout(() => {
+            this.volume = tempVolume;
+            this.rate = tempRate;
+            this.pitch = tempPitch;
+            console.log('🔄 测试参数已恢复');
+        }, 2000);
+    }
+
+    /**
+     * 强制播放语音（用于测试，绕过所有检查）
+     * @param {string} text - 要播放的文本
+     */
+    speakForced(text) {
+        console.log(`🔥 强制播放语音: "${text}"`);
+        
+        if (!('speechSynthesis' in window)) {
+            alert('❌ 您的浏览器不支持语音功能！\n\n请使用以下浏览器：\n• Chrome（推荐）\n• Firefox\n• Safari\n• Edge');
+            return;
+        }
+
+        try {
+            // 停止当前播放
+            speechSynthesis.cancel();
+            
+            // 等待一下再播放
+            setTimeout(() => {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.volume = this.volume;
+                utterance.rate = this.rate;
+                utterance.pitch = this.pitch;
+                utterance.lang = 'zh-CN';
+
+                let hasStarted = false;
+
+                utterance.onstart = () => {
+                    hasStarted = true;
+                    console.log('✅ 强制语音测试开始播放');
+                };
+
+                utterance.onend = () => {
+                    console.log('✅ 强制语音测试播放完成');
+                    if (hasStarted) {
+                        alert('🎉 语音测试成功！\n\n如果您听到了语音，说明功能正常。\n如果没有听到，请检查：\n1. 手机是否静音\n2. 音量是否合适\n3. 是否授权了音频权限');
+                    }
+                };
+
+                utterance.onerror = (e) => {
+                    console.error('💥 强制语音测试失败:', e);
+                    alert(`❌ 语音测试失败！\n\n错误信息: ${e.error}\n\n解决方法：\n1. 刷新页面重试\n2. 检查浏览器音频权限\n3. 尝试其他浏览器`);
+                };
+
+                // 播放语音
+                speechSynthesis.speak(utterance);
+
+                // 检查是否真的在播放
+                setTimeout(() => {
+                    if (!speechSynthesis.speaking && !hasStarted) {
+                        console.warn('⚠️ 语音可能被阻止，显示用户指导');
+                        const shouldRetry = confirm(`🔊 语音可能被浏览器阻止\n\n请先确保：\n1. 手机没有静音\n2. 音量调到合适大小\n3. 允许网页播放音频\n\n点击"确定"重新测试，"取消"忽略`);
+                        
+                        if (shouldRetry) {
+                            // 重新尝试播放
+                            setTimeout(() => this.speakForced(text), 100);
+                        }
+                    }
+                }, 500);
+
+            }, 100);
+
+        } catch (error) {
+            console.error('💥 强制语音播放异常:', error);
+            alert(`❌ 语音播放异常！\n\n错误: ${error.message}\n\n请尝试：\n1. 刷新页面\n2. 重启浏览器\n3. 检查系统音频设置`);
+        }
     }
 
     /**

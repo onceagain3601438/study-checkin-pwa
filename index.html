@@ -1068,8 +1068,9 @@
                         
                         console.log('语音提醒系统初始化完成');
                         
-                        // 测试语音系统是否可用
-                        testVoiceSystemAvailability();
+                        // 设置用户交互激活语音
+                        setupVoiceActivation();
+                        
                     }, 1000);
                 } catch (error) {
                     console.error('语音提醒系统初始化失败:', error);
@@ -1083,6 +1084,52 @@
             
             // 注册Service Worker
             registerServiceWorkerWithRetry();
+        }
+
+        /**
+         * 设置语音激活机制
+         * 在用户首次交互时激活语音功能
+         */
+        function setupVoiceActivation() {
+            let voiceActivated = false;
+            
+            const activateVoice = () => {
+                if (voiceActivated || !voiceReminder) return;
+                
+                console.log('🎯 用户交互检测到，尝试激活语音功能...');
+                
+                try {
+                    // 激活语音引擎
+                    voiceReminder.engineActivated = false;
+                    if (voiceReminder.activateSpeechSynthesis()) {
+                        voiceActivated = true;
+                        console.log('✅ 语音功能已通过用户交互激活');
+                        
+                        // 播放激活成功提示（静音）
+                        const testUtterance = new SpeechSynthesisUtterance('语音功能已激活');
+                        testUtterance.volume = 0.1;
+                        testUtterance.rate = 2;
+                        speechSynthesis.speak(testUtterance);
+                        
+                        // 更新状态指示器
+                        updateVoiceIndicator();
+                        
+                        // 移除事件监听器
+                        document.removeEventListener('click', activateVoice);
+                        document.removeEventListener('touchstart', activateVoice);
+                        document.removeEventListener('keydown', activateVoice);
+                    }
+                } catch (error) {
+                    console.error('💥 语音激活失败:', error);
+                }
+            };
+            
+            // 监听用户交互事件
+            document.addEventListener('click', activateVoice, { once: false });
+            document.addEventListener('touchstart', activateVoice, { once: false });
+            document.addEventListener('keydown', activateVoice, { once: false });
+            
+            console.log('👆 已设置用户交互激活语音功能');
         }
 
         // 测试语音系统可用性
@@ -1200,14 +1247,26 @@
                     const stats = voiceReminder.getEnabledReminderStats();
                     const swReady = voiceReminder.serviceWorkerReady || false;
                     const notificationPermission = 'Notification' in window ? Notification.permission : 'unsupported';
+                    const speechSupported = 'speechSynthesis' in window;
+                    const engineActivated = voiceReminder.engineActivated || false;
                     
                     let statusText = `🔊 语音提醒已启用 (${stats.enabled}/${stats.total})`;
                     
                     // 添加详细状态信息
-                    if (swReady) {
-                        statusText += ' ✅SW';
+                    if (speechSupported) {
+                        if (engineActivated) {
+                            statusText += ' ✅';
+                        } else {
+                            statusText += ' 🔄';
+                        }
                     } else {
-                        statusText += ' ❌SW';
+                        statusText += ' ❌';
+                    }
+                    
+                    if (swReady) {
+                        statusText += 'SW';
+                    } else {
+                        statusText += '❌sw';
                     }
                     
                     if (notificationPermission === 'granted') {
@@ -1240,15 +1299,18 @@
 
         // 显示语音系统详细状态
         function showVoiceSystemStatus() {
-            let statusInfo = '🔊 语音提醒系统状态\n\n';
+            let statusInfo = '🔊 语音提醒系统状态报告\n\n';
             
             // 基本功能检查
-            statusInfo += `浏览器语音支持: ${'speechSynthesis' in window ? '✅ 支持' : '❌ 不支持'}\n`;
+            const speechSupported = 'speechSynthesis' in window;
+            statusInfo += `浏览器语音支持: ${speechSupported ? '✅ 支持' : '❌ 不支持'}\n`;
             statusInfo += `语音对象状态: ${voiceReminder ? '✅ 已创建' : '❌ 未创建'}\n`;
             
             if (voiceReminder) {
                 statusInfo += `主开关状态: ${voiceReminder.isEnabled ? '✅ 已启用' : '❌ 已禁用'}\n`;
+                statusInfo += `语音引擎激活: ${voiceReminder.engineActivated ? '✅ 已激活' : '🔄 未激活'}\n`;
                 statusInfo += `Service Worker: ${voiceReminder.serviceWorkerReady ? '✅ 已准备' : '❌ 未准备'}\n`;
+                statusInfo += `播放状态: ${voiceReminder.isPlaying ? '🔊 播放中' : '🔇 空闲'}\n`;
             }
             
             // 通知权限
@@ -1259,19 +1321,42 @@
                 statusInfo += `通知权限: ❌ 不支持\n`;
             }
             
-            // 语音合成状态
-            if ('speechSynthesis' in window) {
-                statusInfo += `语音合成状态: ${speechSynthesis.speaking ? '🔊 播放中' : '🔇 空闲'}\n`;
-                statusInfo += `语音队列长度: ${speechSynthesis.pending ? '有队列' : '无队列'}\n`;
+            // 语音合成详细状态
+            if (speechSupported) {
+                try {
+                    const voices = speechSynthesis.getVoices();
+                    statusInfo += `可用语音数量: ${voices.length}\n`;
+                    statusInfo += `语音合成状态: ${speechSynthesis.speaking ? '🔊 播放中' : '🔇 空闲'}\n`;
+                    statusInfo += `语音队列状态: ${speechSynthesis.pending ? '📋 有队列' : '📋 无队列'}\n`;
+                    statusInfo += `语音暂停状态: ${speechSynthesis.paused ? '⏸️ 已暂停' : '▶️ 正常'}\n`;
+                } catch (error) {
+                    statusInfo += `语音状态检查: ❌ 检查失败 (${error.message})\n`;
+                }
             }
             
-            statusInfo += '\n💡 提示：如果语音不工作，请:\n';
-            statusInfo += '1. 检查手机是否静音\n';
-            statusInfo += '2. 点击语音测试按钮\n';
-            statusInfo += '3. 授权通知权限\n';
-            statusInfo += '4. 刷新页面重试';
+            statusInfo += '\n🔧 故障排除指南：\n';
+            if (!speechSupported) {
+                statusInfo += '• 更换支持语音的浏览器（Chrome推荐）\n';
+            } else if (!voiceReminder || !voiceReminder.engineActivated) {
+                statusInfo += '• 点击任意按钮激活语音引擎\n';
+                statusInfo += '• 确保手机没有静音\n';
+                statusInfo += '• 检查浏览器音频权限\n';
+            } else {
+                statusInfo += '• 语音功能正常，可以使用测试按钮验证\n';
+            }
             
-            alert(statusInfo);
+            statusInfo += '• 如遇问题请尝试刷新页面\n';
+            statusInfo += '• 建议使用Chrome浏览器获得最佳体验\n\n';
+            statusInfo += '🎯 快速测试：点击"确定"后会播放测试语音';
+            
+            if (confirm(statusInfo)) {
+                // 用户确认后播放测试语音
+                if (voiceReminder && voiceReminder.speakForced) {
+                    voiceReminder.speakForced('语音系统测试成功！功能正常！');
+                } else {
+                    forceVoiceTest();
+                }
+            }
         }
 
         // 强制语音测试（绕过所有检查）
