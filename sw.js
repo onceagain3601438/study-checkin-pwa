@@ -3,17 +3,15 @@
  * 实现离线缓存和应用安装功能
  */
 
-const CACHE_NAME = 'study-checkin-v2.0';
+const CACHE_NAME = 'study-checkin-v1.2.2';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/voice-reminder.js',
-  '/icon-72.png',
-  '/icon-96.png',
-  '/icon-144.png',
-  '/icon-192.png',
-  '/icon-512.png'
+  './',
+  './index.html',
+  './manifest.json',
+  './voice-reminder.js',
+  './icon-72.png',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 /**
@@ -71,6 +69,13 @@ self.addEventListener('fetch', (event) => {
  */
 self.addEventListener('message', (event) => {
   console.log('Service Worker received message:', event.data);
+  
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    // 强制跳过等待，立即激活新版本
+    console.log('收到SKIP_WAITING消息，强制激活新版本');
+    self.skipWaiting();
+    return;
+  }
   
   if (event.data && event.data.type === 'SCHEDULE_REMINDER') {
     scheduleReminder(event.data.reminder);

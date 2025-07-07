@@ -1196,6 +1196,25 @@
                 navigator.serviceWorker.register('./sw.js').then((registration) => {
                     console.log('Service Worker 注册成功:', registration);
                     
+                    // 检查是否有更新
+                    registration.addEventListener('updatefound', () => {
+                        console.log('发现Service Worker更新');
+                        const newWorker = registration.installing;
+                        
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed') {
+                                if (navigator.serviceWorker.controller) {
+                                    // 有新版本可用
+                                    console.log('新版本可用，准备更新');
+                                    showUpdateAvailable(newWorker);
+                                } else {
+                                    // 首次安装
+                                    console.log('PWA首次安装完成');
+                                }
+                            }
+                        });
+                    });
+                    
                     // 等待Service Worker激活
                     return navigator.serviceWorker.ready;
                 }).then((registration) => {
@@ -1232,6 +1251,74 @@
                 });
             } else {
                 console.warn('浏览器不支持Service Worker');
+            }
+        }
+
+        /**
+         * 显示更新可用提示
+         */
+        function showUpdateAvailable(newWorker) {
+            const updateMessage = '发现新版本！点击更新以获取最新功能。';
+            
+            if (confirm(updateMessage)) {
+                // 用户同意更新
+                newWorker.postMessage({ type: 'SKIP_WAITING' });
+                
+                // 监听Service Worker状态变化
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'activated') {
+                        // 新版本已激活，重新加载页面
+                        window.location.reload();
+                    }
+                });
+            }
+        }
+
+        /**
+         * 强制检查更新（用于解决缓存问题）
+         */
+        function forceCheckUpdate() {
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                console.log('手动检查Service Worker更新...');
+                
+                navigator.serviceWorker.getRegistration().then((registration) => {
+                    if (registration) {
+                        // 强制检查更新
+                        registration.update().then(() => {
+                            console.log('Service Worker更新检查完成');
+                        }).catch((error) => {
+                            console.error('Service Worker更新检查失败:', error);
+                        });
+                    }
+                });
+            }
+        }
+
+        /**
+         * 清除所有缓存并重新加载（终极解决方案）
+         */
+        function clearCacheAndReload() {
+            if ('caches' in window) {
+                console.log('清除所有缓存...');
+                
+                caches.keys().then((cacheNames) => {
+                    return Promise.all(
+                        cacheNames.map((cacheName) => {
+                            console.log('删除缓存:', cacheName);
+                            return caches.delete(cacheName);
+                        })
+                    );
+                }).then(() => {
+                    console.log('所有缓存已清除，重新加载页面...');
+                    window.location.reload(true);
+                }).catch((error) => {
+                    console.error('清除缓存失败:', error);
+                    // 强制刷新
+                    window.location.reload(true);
+                });
+            } else {
+                // 浏览器不支持缓存API，直接强制刷新
+                window.location.reload(true);
             }
         }
 
@@ -1321,6 +1408,10 @@
                 statusInfo += `通知权限: ❌ 不支持\n`;
             }
             
+            // PWA缓存状态
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+            statusInfo += `PWA模式: ${isStandalone ? '✅ 独立应用' : '📱 浏览器中'}\n`;
+            
             // 语音合成详细状态
             if (speechSupported) {
                 try {
@@ -1345,16 +1436,57 @@
                 statusInfo += '• 语音功能正常，可以使用测试按钮验证\n';
             }
             
-            statusInfo += '• 如遇问题请尝试刷新页面\n';
-            statusInfo += '• 建议使用Chrome浏览器获得最佳体验\n\n';
-            statusInfo += '🎯 快速测试：点击"确定"后会播放测试语音';
+            statusInfo += '\n💡 缓存问题解决方案：\n';
+            statusInfo += '• 如果功能不完整，可能是缓存问题\n';
+            statusInfo += '• 建议清除缓存并重新加载\n';
+            statusInfo += '• 使用Chrome浏览器获得最佳体验\n\n';
+            statusInfo += '🎯 操作选项：\n';
+            statusInfo += '• 确定：播放测试语音\n';
+            statusInfo += '• 取消：检查缓存更新\n';
+            statusInfo += '• 点击右上角⚙️：清除缓存重新加载';
             
-            if (confirm(statusInfo)) {
-                // 用户确认后播放测试语音
+            const userChoice = confirm(statusInfo);
+            
+            if (userChoice) {
+                // 用户点击确定：播放测试语音
                 if (voiceReminder && voiceReminder.speakForced) {
                     voiceReminder.speakForced('语音系统测试成功！功能正常！');
                 } else {
                     forceVoiceTest();
+                }
+            } else {
+                // 用户点击取消：显示缓存解决选项
+                showCacheFixOptions();
+            }
+        }
+
+        /**
+         * 显示缓存修复选项
+         */
+        function showCacheFixOptions() {
+            const options = '🔧 缓存问题修复选项\n\n' +
+                          '如果您的功能不完整（如缺少语音图标🔊），\n' +
+                          '可能是缓存了旧版本，请选择：\n\n' +
+                          '🔄 确定：强制检查更新\n' +
+                          '🗑️ 取消：清除所有缓存并重新加载\n\n' +
+                          '⚠️ 清除缓存会重新下载所有文件';
+            
+            const choice = confirm(options);
+            
+            if (choice) {
+                // 强制检查更新
+                console.log('用户选择强制检查更新');
+                forceCheckUpdate();
+                setTimeout(() => {
+                    alert('✅ 更新检查完成！\n\n如果仍有问题，请选择清除缓存选项。');
+                }, 2000);
+            } else {
+                // 清除所有缓存并重新加载
+                const confirmClear = confirm('⚠️ 即将清除所有缓存并重新加载\n\n这将重新下载所有文件，确保获得最新版本。\n\n确定继续吗？');
+                
+                if (confirmClear) {
+                    console.log('用户确认清除缓存');
+                    clearCacheAndReload();
                 }
             }
         }
