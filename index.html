@@ -804,7 +804,14 @@
             const indicator = document.getElementById('voiceIndicator');
             if (voiceReminder && voiceReminder.isEnabled) {
                 const stats = voiceReminder.getEnabledReminderStats();
-                indicator.textContent = `🔊 语音提醒已启用 (${stats.enabled}/${stats.total})`;
+                const backgroundEnabled = voiceReminder.loadSetting('backgroundNotifications', true);
+                const wakeLockEnabled = voiceReminder.loadSetting('wakeLockEnabled', true);
+                
+                let statusText = `🔊 语音提醒已启用 (${stats.enabled}/${stats.total})`;
+                if (backgroundEnabled) statusText += ' 🔔';
+                if (wakeLockEnabled) statusText += ' 📱';
+                
+                indicator.textContent = statusText;
                 indicator.classList.remove('disabled');
             } else {
                 indicator.textContent = '🔇 语音提醒已关闭';
@@ -820,20 +827,43 @@
             updateStudyDisplay();
             updatePointsDisplay();
             
-            // 初始化语音提醒系统
+            // 初始化增强版语音提醒系统
             if (typeof VoiceReminder !== 'undefined') {
                 voiceReminder = new VoiceReminder();
                 window.voiceReminder = voiceReminder;
                 updateVoiceIndicator();
+                
+                // 将studyData和currentStudyDate暴露给全局，供语音提醒使用
+                window.studyData = studyData;
+                window.currentStudyDate = currentStudyDate;
             }
             
             // 请求通知权限
             if ('Notification' in window) {
-                Notification.requestPermission();
+                Notification.requestPermission().then((permission) => {
+                    console.log('通知权限状态:', permission);
+                });
             }
             
+            // 注册Service Worker
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js');
+                navigator.serviceWorker.register('./sw.js').then((registration) => {
+                    console.log('Service Worker 注册成功:', registration);
+                    
+                    // 监听Service Worker消息
+                    navigator.serviceWorker.addEventListener('message', (event) => {
+                        console.log('收到Service Worker消息:', event.data);
+                        
+                        if (event.data.type === 'REMINDER_TRIGGERED') {
+                            // 如果页面可见，同时播放语音
+                            if (!document.hidden && voiceReminder) {
+                                voiceReminder.playReminderFromServiceWorker(event.data.reminder);
+                            }
+                        }
+                    });
+                }).catch((error) => {
+                    console.error('Service Worker 注册失败:', error);
+                });
             }
         }
 
@@ -1050,6 +1080,9 @@
             // 更新语音提醒
             if (voiceReminder) {
                 voiceReminder.updateAllTaskReminders(studyData, currentStudyDate);
+                // 同步到全局变量，供语音提醒系统使用
+                window.studyData = studyData;
+                window.currentStudyDate = currentStudyDate;
             }
         }
 
