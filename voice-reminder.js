@@ -1,4 +1,4 @@
-// 语音提醒模块 - 学习打卡PWA专用
+// 语音提醒模块 - 学习打卡PWA专用（增强版）
 class VoiceReminder {
     constructor() {
         // 主开关
@@ -22,6 +22,10 @@ class VoiceReminder {
         
         this.timers = new Map(); // 存储定时器
         this.currentReminders = new Map(); // 存储当前提醒
+        this.wakeLock = null; // Wake Lock 对象
+        this.isPageVisible = true; // 页面可见性状态
+        this.serviceWorkerReady = false; // Service Worker 状态
+        
         this.init();
     }
 
@@ -35,13 +39,167 @@ class VoiceReminder {
             return;
         }
 
+        // 初始化Service Worker通信
+        this.initServiceWorker();
+        
+        // 监听页面可见性变化
+        this.setupVisibilityListener();
+        
+        // 设置Wake Lock
+        this.setupWakeLock();
+        
         // 启动时间监控
         this.startTimeMonitoring();
         
         // 添加语音提醒设置界面
         this.addVoiceReminderUI();
         
-        console.log('语音提醒系统已启动');
+        // 请求通知权限
+        this.requestNotificationPermission();
+        
+        console.log('增强版语音提醒系统已启动');
+    }
+
+    /**
+     * 初始化Service Worker通信
+     */
+    initServiceWorker() {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then((registration) => {
+                this.serviceWorkerReady = true;
+                console.log('Service Worker ready for background reminders');
+                
+                // 监听Service Worker消息
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    this.handleServiceWorkerMessage(event.data);
+                });
+            }).catch((error) => {
+                console.error('Service Worker not ready:', error);
+            });
+        }
+    }
+
+    /**
+     * 处理Service Worker消息
+     */
+    handleServiceWorkerMessage(data) {
+        switch (data.type) {
+            case 'REMINDER_TRIGGERED':
+                console.log('收到Service Worker提醒:', data.reminder);
+                // 如果页面可见，播放语音
+                if (this.isPageVisible) {
+                    this.playReminderFromServiceWorker(data.reminder);
+                }
+                break;
+            case 'SERVICE_WORKER_HEARTBEAT':
+                console.log('Service Worker心跳:', data.timestamp, '活动提醒:', data.activeReminders);
+                break;
+            case 'BACKGROUND_SYNC_REMINDER':
+                console.log('后台同步提醒:', data.timestamp);
+                this.checkAndUpdateReminders();
+                break;
+        }
+    }
+
+    /**
+     * 播放来自Service Worker的提醒
+     */
+    playReminderFromServiceWorker(reminder) {
+        if (reminder.type === 'studyStart') {
+            this.speak(`学习时间到了！${reminder.body}`, 'studyStart');
+        } else if (reminder.type === 'studyEnd') {
+            this.speak(`学习时间结束！${reminder.body}`, 'studyEnd');
+        }
+    }
+
+    /**
+     * 设置页面可见性监听
+     */
+    setupVisibilityListener() {
+        document.addEventListener('visibilitychange', () => {
+            this.isPageVisible = !document.hidden;
+            console.log('页面可见性变化:', this.isPageVisible ? '可见' : '隐藏');
+            
+            if (this.isPageVisible) {
+                // 页面变为可见时，检查是否有错过的提醒
+                this.checkMissedReminders();
+            }
+        });
+    }
+
+    /**
+     * 设置Wake Lock（保持屏幕唤醒）
+     */
+    setupWakeLock() {
+        if ('wakeLock' in navigator) {
+            console.log('设备支持Wake Lock API');
+        } else {
+            console.warn('设备不支持Wake Lock API');
+        }
+    }
+
+    /**
+     * 请求Wake Lock
+     */
+    async requestWakeLock() {
+        if ('wakeLock' in navigator) {
+            try {
+                this.wakeLock = await navigator.wakeLock.request('screen');
+                console.log('Wake Lock已激活，屏幕将保持唤醒');
+                
+                this.wakeLock.addEventListener('release', () => {
+                    console.log('Wake Lock已释放');
+                });
+            } catch (err) {
+                console.error('无法获取Wake Lock:', err);
+            }
+        }
+    }
+
+    /**
+     * 释放Wake Lock
+     */
+    releaseWakeLock() {
+        if (this.wakeLock) {
+            this.wakeLock.release();
+            this.wakeLock = null;
+            console.log('Wake Lock已手动释放');
+        }
+    }
+
+    /**
+     * 请求通知权限
+     */
+    requestNotificationPermission() {
+        if ('Notification' in window) {
+            if (Notification.permission === 'default') {
+                Notification.requestPermission().then((permission) => {
+                    console.log('通知权限状态:', permission);
+                    if (permission === 'granted') {
+                        console.log('通知权限已获得');
+                    }
+                });
+            }
+        }
+    }
+
+    /**
+     * 检查错过的提醒
+     */
+    checkMissedReminders() {
+        const now = Date.now();
+        // 这里可以添加逻辑来检查在后台时是否有错过的提醒
+        console.log('检查错过的提醒:', new Date(now).toLocaleTimeString());
+    }
+
+    /**
+     * 检查并更新提醒
+     */
+    checkAndUpdateReminders() {
+        // 重新同步所有提醒
+        if (window.studyData && window.currentStudyDate) {
+            this.updateAllTaskReminders(window.studyData, window.currentStudyDate);
+        }
     }
 
     /**
@@ -192,18 +350,54 @@ class VoiceReminder {
         // 设置学习开始提醒（仅当启用时）
         if (this.reminderTypes.studyStart) {
             const startTime = this.getNextReminderTime(timeInfo);
+            
+            // 本地定时器（页面活跃时使用）
             const startTimerId = setTimeout(() => {
                 this.playStartReminder(task, planName, timeInfo);
+                // 在学习开始时请求Wake Lock
+                this.requestWakeLock();
             }, startTime.getTime() - Date.now());
+
+            // Service Worker定时器（后台使用）
+            if (this.serviceWorkerReady) {
+                navigator.serviceWorker.controller?.postMessage({
+                    type: 'SCHEDULE_REMINDER',
+                    reminder: {
+                        id: `${reminderId}_start`,
+                        title: '学习开始提醒',
+                        body: `开始学习了！现在是${task.name}时间`,
+                        triggerTime: startTime.toISOString(),
+                        type: 'studyStart'
+                    }
+                });
+            }
 
             // 设置学习结束提醒（仅当启用时）
             let endTimerId = null;
             if (this.reminderTypes.studyEnd) {
                 const endTime = new Date(startTime);
                 endTime.setHours(timeInfo.end.hour, timeInfo.end.minute, 0, 0);
+                
+                // 本地定时器
                 endTimerId = setTimeout(() => {
                     this.playEndReminder(task, planName);
+                    // 在学习结束时释放Wake Lock
+                    this.releaseWakeLock();
                 }, endTime.getTime() - Date.now());
+
+                // Service Worker定时器
+                if (this.serviceWorkerReady) {
+                    navigator.serviceWorker.controller?.postMessage({
+                        type: 'SCHEDULE_REMINDER',
+                        reminder: {
+                            id: `${reminderId}_end`,
+                            title: '学习结束提醒',
+                            body: `${task.name}学习时间结束了，休息一下吧！`,
+                            triggerTime: endTime.toISOString(),
+                            type: 'studyEnd'
+                        }
+                    });
+                }
             }
 
             // 存储定时器ID
@@ -211,10 +405,12 @@ class VoiceReminder {
                 startTimer: startTimerId,
                 endTimer: endTimerId,
                 task: task,
-                planName: planName
+                planName: planName,
+                startTime: startTime,
+                endTime: endTime
             });
 
-            console.log(`已设置任务提醒: ${task.name} (${task.timeSlot})`);
+            console.log(`已设置增强版任务提醒: ${task.name} (${task.timeSlot})`);
         }
     }
 
@@ -407,9 +603,24 @@ class VoiceReminder {
     clearTaskReminder(reminderId) {
         const timerInfo = this.timers.get(reminderId);
         if (timerInfo) {
+            // 清除本地定时器
             if (timerInfo.startTimer) clearTimeout(timerInfo.startTimer);
             if (timerInfo.endTimer) clearTimeout(timerInfo.endTimer);
+            
+            // 清除Service Worker定时器
+            if (this.serviceWorkerReady) {
+                navigator.serviceWorker.controller?.postMessage({
+                    type: 'CANCEL_REMINDER',
+                    reminderId: `${reminderId}_start`
+                });
+                navigator.serviceWorker.controller?.postMessage({
+                    type: 'CANCEL_REMINDER',
+                    reminderId: `${reminderId}_end`
+                });
+            }
+            
             this.timers.delete(reminderId);
+            console.log('已清除增强版任务提醒:', reminderId);
         }
     }
 
@@ -484,18 +695,49 @@ class VoiceReminder {
             </div>
             
             <div id="voiceSettingsModal" class="modal" style="display: none;">
-                <div class="modal-content" style="max-height: 85vh; overflow-y: auto;">
+                <div class="modal-content" style="max-height: 90vh; overflow-y: auto;">
                     <div class="modal-header">
-                        <span class="modal-title">语音提醒设置</span>
+                        <span class="modal-title">语音提醒设置 (增强版)</span>
                         <button class="close-btn" onclick="closeVoiceSettings()">&times;</button>
                     </div>
                     <div class="modal-body">
+                        <!-- 功能状态显示 -->
+                        <div class="form-group" style="background: #f8f9ff; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+                            <div style="font-size: 12px; color: #666;">
+                                <strong>🚀 增强功能状态：</strong><br>
+                                <span id="serviceWorkerStatus">🔄 Service Worker: 检查中...</span><br>
+                                <span id="notificationStatus">🔔 通知权限: ${Notification.permission}</span><br>
+                                <span id="wakeLockStatus">📱 Wake Lock: ${('wakeLock' in navigator) ? '支持' : '不支持'}</span>
+                            </div>
+                        </div>
+                        
                         <!-- 主开关 -->
                         <div class="form-group">
                             <label class="form-label" style="font-size: 14px; color: #333; margin-bottom: 10px;">
                                 <input type="checkbox" id="voiceEnabled" ${this.isEnabled ? 'checked' : ''} style="margin-right: 8px;">
                                 <strong>启用语音提醒</strong>
                             </label>
+                        </div>
+                        
+                        <!-- 后台功能设置 -->
+                        <div class="form-group">
+                            <label class="form-label" style="font-size: 13px; color: #555; margin-bottom: 10px;">
+                                <strong>📱 后台功能设置：</strong>
+                            </label>
+                            <div style="display: grid; grid-template-columns: 1fr; gap: 8px; font-size: 12px;">
+                                <label style="display: flex; align-items: center;">
+                                    <input type="checkbox" id="backgroundNotifications" ${this.loadSetting('backgroundNotifications', true) ? 'checked' : ''} style="margin-right: 6px;">
+                                    🔔 后台通知提醒（锁屏时显示通知）
+                                </label>
+                                <label style="display: flex; align-items: center;">
+                                    <input type="checkbox" id="wakeLockEnabled" ${this.loadSetting('wakeLockEnabled', true) ? 'checked' : ''} style="margin-right: 6px;">
+                                    📱 学习时保持屏幕唤醒
+                                </label>
+                                <label style="display: flex; align-items: center;">
+                                    <input type="checkbox" id="vibrationEnabled" ${this.loadSetting('vibrationEnabled', true) ? 'checked' : ''} style="margin-right: 6px;">
+                                    📳 振动提醒
+                                </label>
+                            </div>
                         </div>
                         
                         <!-- 分隔线 -->
@@ -589,6 +831,17 @@ class VoiceReminder {
                                 <button class="btn" style="font-size: 11px; padding: 4px 8px;" onclick="selectEssentialReminders()">仅重要</button>
                             </div>
                         </div>
+                        
+                        <!-- 使用说明 -->
+                        <div class="form-group" style="margin-top: 20px; background: #f0f8ff; padding: 10px; border-radius: 5px;">
+                            <div style="font-size: 11px; color: #666;">
+                                <strong>💡 使用说明：</strong><br>
+                                • 后台通知：手机锁屏时会显示通知提醒<br>
+                                • 屏幕唤醒：学习时间段内保持屏幕不息屏<br>
+                                • 振动提醒：配合语音和通知的振动反馈<br>
+                                • 连续播放：每次语音提醒播放3次，确保不会错过
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -599,6 +852,9 @@ class VoiceReminder {
         
         // 绑定事件
         this.bindVoiceSettingsEvents();
+        
+        // 更新状态显示
+        this.updateStatusDisplay();
     }
 
     /**
@@ -643,6 +899,11 @@ class VoiceReminder {
         this.reminderTypes.planAdded = document.getElementById('voicePlanAdded').checked;
         this.reminderTypes.encouragement = document.getElementById('voiceEncouragement').checked;
 
+        // 保存后台功能设置
+        const backgroundNotifications = document.getElementById('backgroundNotifications')?.checked ?? true;
+        const wakeLockEnabled = document.getElementById('wakeLockEnabled')?.checked ?? true;
+        const vibrationEnabled = document.getElementById('vibrationEnabled')?.checked ?? true;
+
         // 保存到本地存储
         this.saveSetting('voiceReminderEnabled', this.isEnabled);
         this.saveSetting('voiceReminderVolume', this.volume);
@@ -653,6 +914,11 @@ class VoiceReminder {
         Object.keys(this.reminderTypes).forEach(type => {
             this.saveSetting(`voice${type.charAt(0).toUpperCase() + type.slice(1)}`, this.reminderTypes[type]);
         });
+        
+        // 保存后台功能设置
+        this.saveSetting('backgroundNotifications', backgroundNotifications);
+        this.saveSetting('wakeLockEnabled', wakeLockEnabled);
+        this.saveSetting('vibrationEnabled', vibrationEnabled);
 
         // 播放确认提醒
         this.playSettingConfirmReminder('voiceSettings', null);
@@ -665,13 +931,23 @@ class VoiceReminder {
         // 关闭设置窗口
         document.getElementById('voiceSettingsModal').style.display = 'none';
         
-        console.log('语音设置已保存:', {
+        console.log('增强版语音设置已保存:', {
             isEnabled: this.isEnabled,
             reminderTypes: this.reminderTypes,
             volume: this.volume,
             rate: this.rate,
-            pitch: this.pitch
+            pitch: this.pitch,
+            backgroundSettings: {
+                backgroundNotifications,
+                wakeLockEnabled,
+                vibrationEnabled
+            }
         });
+        
+        // 如果用户关闭了后台通知，提醒用户
+        if (!backgroundNotifications) {
+            alert('提示：您已关闭后台通知，锁屏时将无法收到提醒。');
+        }
     }
 
     /**
@@ -703,6 +979,27 @@ class VoiceReminder {
         const enabledCount = Object.values(this.reminderTypes).filter(Boolean).length;
         const totalCount = Object.keys(this.reminderTypes).length;
         return { enabled: enabledCount, total: totalCount };
+    }
+
+    /**
+     * 更新状态显示
+     */
+    updateStatusDisplay() {
+        setTimeout(() => {
+            const serviceWorkerElement = document.getElementById('serviceWorkerStatus');
+            const notificationElement = document.getElementById('notificationStatus');
+            const wakeLockElement = document.getElementById('wakeLockStatus');
+            
+            if (serviceWorkerElement) {
+                serviceWorkerElement.textContent = `🔄 Service Worker: ${this.serviceWorkerReady ? '已准备' : '未准备'}`;
+            }
+            if (notificationElement) {
+                notificationElement.textContent = `🔔 通知权限: ${Notification.permission}`;
+            }
+            if (wakeLockElement) {
+                wakeLockElement.textContent = `📱 Wake Lock: ${('wakeLock' in navigator) ? '支持' : '不支持'}`;
+            }
+        }, 100);
     }
 }
 
