@@ -1730,64 +1730,151 @@
 
         // 更新语音提醒状态指示器
         function updateVoiceIndicator() {
-            const indicator = document.getElementById('voiceIndicator');
-            if (!indicator) return;
+            console.log('🔄 更新语音指示器...');
             
-            console.log('更新语音指示器状态...');
-            
-            try {
-                if (voiceReminder && voiceReminder.isEnabled) {
-                    const stats = voiceReminder.getEnabledReminderStats();
-                    const swReady = voiceReminder.serviceWorkerReady || false;
-                    const notificationPermission = 'Notification' in window ? Notification.permission : 'unsupported';
-                    const speechSupported = 'speechSynthesis' in window;
-                    const engineActivated = voiceReminder.engineActivated || false;
-                    
-                    let statusText = `🔊 语音提醒已启用 (${stats.enabled}/${stats.total})`;
-                    
-                    // 添加详细状态信息
-                    if (speechSupported) {
-                        if (engineActivated) {
-                            statusText += ' ✅';
-                        } else {
-                            statusText += ' 🔄';
-                        }
-                    } else {
-                        statusText += ' ❌';
-                    }
-                    
-                    if (swReady) {
-                        statusText += 'SW';
-                    } else {
-                        statusText += '❌sw';
-                    }
-                    
-                    if (notificationPermission === 'granted') {
-                        statusText += ' 🔔';
-                    } else if (notificationPermission === 'denied') {
-                        statusText += ' 🔕';
-                    } else {
-                        statusText += ' ⚠️';
-                    }
-                    
-                    indicator.textContent = statusText;
-                    indicator.classList.remove('disabled');
-                    
-                    console.log('语音指示器更新完成:', statusText);
-                } else {
-                    indicator.textContent = '🔇 语音提醒已关闭';
-                    indicator.classList.add('disabled');
-                    console.log('语音提醒已禁用');
-                }
-            } catch (error) {
-                console.error('更新语音指示器失败:', error);
-                indicator.textContent = '❌ 语音系统错误';
-                indicator.classList.add('disabled');
+            // 移除现有的语音指示器
+            const existingIndicator = document.querySelector('#voiceReminderSettings');
+            if (existingIndicator) {
+                existingIndicator.remove();
+                console.log('🗑️ 移除现有语音指示器');
             }
             
-            // 让指示器可点击，显示详细状态
-            indicator.style.cursor = 'pointer';
-            indicator.onclick = showVoiceSystemStatus;
+            // 检查语音提醒系统状态
+            const hasVoiceReminder = window.voiceReminder && window.voiceReminder.speechSynthesis;
+            const isEnabled = hasVoiceReminder ? window.voiceReminder.isEnabled : false;
+            
+            console.log('📊 语音系统状态:', {
+                hasVoiceReminder,
+                isEnabled,
+                speechSynthesis: hasVoiceReminder ? '可用' : '不可用'
+            });
+            
+            // 创建语音指示器容器
+            const indicatorContainer = document.createElement('div');
+            indicatorContainer.id = 'voiceReminderSettings';
+            indicatorContainer.style.cssText = `
+                position: fixed;
+                bottom: 70px;
+                left: 20px;
+                z-index: 1001;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                pointer-events: none;
+            `;
+            
+            // 创建语音设置按钮
+            const settingsButton = document.createElement('div');
+            settingsButton.style.cssText = `
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: white;
+                padding: 12px;
+                border-radius: 50%;
+                cursor: pointer;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                font-size: 18px;
+                width: 44px;
+                height: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.3s ease;
+                pointer-events: auto;
+                user-select: none;
+            `;
+            
+            // 设置按钮图标和状态
+            if (hasVoiceReminder && isEnabled) {
+                settingsButton.innerHTML = '🔊';
+                settingsButton.title = '语音提醒已启用，点击设置';
+            } else if (hasVoiceReminder && !isEnabled) {
+                settingsButton.innerHTML = '🔇';
+                settingsButton.title = '语音提醒已禁用，点击设置';
+                settingsButton.style.opacity = '0.6';
+            } else {
+                settingsButton.innerHTML = '🔇';
+                settingsButton.title = '语音功能不可用，点击重试';
+                settingsButton.style.opacity = '0.4';
+                settingsButton.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a52)';
+            }
+            
+            // 添加点击事件
+            settingsButton.addEventListener('click', () => {
+                console.log('🎯 语音设置按钮被点击');
+                
+                if (!hasVoiceReminder) {
+                    // 语音系统不可用，尝试重新初始化
+                    console.log('🔄 语音系统不可用，尝试重新初始化...');
+                    if (window.initializeVoiceReminderWithRetry) {
+                        window.initializeVoiceReminderWithRetry();
+                    } else {
+                        alert('语音系统初始化失败，请刷新页面重试');
+                    }
+                } else {
+                    // 打开语音设置
+                    toggleVoiceSettings();
+                }
+            });
+            
+            // 添加悬停效果
+            settingsButton.addEventListener('mouseenter', () => {
+                settingsButton.style.transform = 'scale(1.1)';
+                settingsButton.style.boxShadow = '0 6px 20px rgba(0,0,0,0.4)';
+            });
+            
+            settingsButton.addEventListener('mouseleave', () => {
+                settingsButton.style.transform = 'scale(1)';
+                settingsButton.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
+            });
+            
+            indicatorContainer.appendChild(settingsButton);
+            
+            // 创建状态指示器
+            if (hasVoiceReminder) {
+                const stats = window.voiceReminder.getEnabledReminderStats();
+                const serviceWorkerReady = window.voiceReminder.serviceWorkerReady;
+                
+                const statusIndicator = document.createElement('div');
+                statusIndicator.style.cssText = `
+                    background: rgba(0, 0, 0, 0.7);
+                    color: white;
+                    padding: 4px 8px;
+                    border-radius: 12px;
+                    font-size: 10px;
+                    text-align: center;
+                    backdrop-filter: blur(10px);
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    pointer-events: auto;
+                    cursor: pointer;
+                    min-width: 60px;
+                `;
+                
+                // 状态文本
+                let statusText = '';
+                if (isEnabled) {
+                    statusText = `${stats.enabled}/${stats.total}`;
+                } else {
+                    statusText = '已关闭';
+                }
+                
+                // Service Worker 状态
+                const swStatus = serviceWorkerReady ? '✓SW' : '⚠SW';
+                
+                statusIndicator.innerHTML = `${statusText} ${swStatus}`;
+                statusIndicator.title = `启用提醒: ${stats.enabled}/${stats.total}, Service Worker: ${serviceWorkerReady ? '就绪' : '未就绪'}`;
+                
+                // 点击状态指示器显示详细信息
+                statusIndicator.addEventListener('click', () => {
+                    showVoiceSystemStatus();
+                });
+                
+                indicatorContainer.appendChild(statusIndicator);
+            }
+            
+            // 将指示器添加到页面
+            document.body.appendChild(indicatorContainer);
+            
+            console.log('✅ 语音指示器更新完成');
         }
 
         // 显示语音系统详细状态
@@ -2313,13 +2400,13 @@
                                     </div>
                                     <div>
                                         <div class="checkbox ${task.studyCompleted ? 'checked' : ''}" 
-                                             onclick="toggleStudy(${plan.id}, ${task.id})">
+                                             onclick="toggleTaskCompleted(${plan.id}, ${task.id})">
                                             ${task.studyCompleted ? '<span class="check-mark">✓</span>' : ''}
                                         </div>
                                     </div>
                                     <div>
                                         <div class="checkbox ${task.masteredCompleted ? 'checked' : ''}" 
-                                             onclick="toggleMaster(${plan.id}, ${task.id})">
+                                             onclick="toggleTaskMastered(${plan.id}, ${task.id})">
                                             ${task.masteredCompleted ? '<span class="check-mark">✓</span>' : ''}
                                         </div>
                                     </div>
@@ -2364,64 +2451,57 @@
         }
 
         // 任务操作函数
-        function toggleStudy(planId, taskId) {
-            const dateKey = getDateKey(currentStudyDate);
-            const plan = studyData[dateKey]?.find(p => p.id === planId);
-            const task = plan?.tasks.find(t => t.id === taskId);
+        function toggleTaskCompleted(planId, taskId) {
+            console.log(`🎯 切换任务完成状态: 计划${planId}, 任务${taskId}`);
             
-            if (task) {
-                task.studyCompleted = !task.studyCompleted;
-                updateTaskPoints(task);
-                updatePlanStats(plan);
-                saveData();
-                updateTotalPoints();
-                updateStudyDisplay();
-                
-                // 播放完成提醒 - 添加调试信息
-                if (task.studyCompleted) {
-                    console.log('尝试播放学习完成语音提醒:', task.name);
-                    if (voiceReminder) {
-                        console.log('语音提醒对象存在，检查设置:', voiceReminder.isEnabled, voiceReminder.reminderTypes.taskComplete);
-                        if (voiceReminder.isEnabled && voiceReminder.reminderTypes.taskComplete) {
-                            console.log('开始播放学习完成语音');
-                            voiceReminder.playTaskCompleteReminder(task.name);
-                        } else {
-                            console.log('语音提醒被禁用或任务完成提醒被关闭');
-                        }
-                    } else {
-                        console.log('语音提醒对象不存在');
+            const dateKey = getDateKey(currentStudyDate);
+            const plan = studyData[dateKey].find(p => p.id === planId);
+            
+            if (plan) {
+                const task = plan.tasks.find(t => t.id === taskId);
+                if (task) {
+                    const wasCompleted = task.completed;
+                    task.completed = !task.completed;
+                    
+                    console.log(`✅ 任务完成状态已更新: ${task.name} = ${task.completed ? '已完成' : '未完成'}`);
+                    
+                    // 🆕 播放任务完成语音提醒
+                    if (task.completed && window.voiceReminder && window.voiceReminder.canPlayReminder('taskComplete')) {
+                        console.log('🔊 播放任务完成语音提醒');
+                        window.voiceReminder.playTaskCompleteReminder(task.name);
                     }
+                    
+                    saveStudyData();
+                    renderStudyPlans();
+                    updateTotalPoints();
                 }
             }
         }
 
-        function toggleMaster(planId, taskId) {
-            const dateKey = getDateKey(currentStudyDate);
-            const plan = studyData[dateKey]?.find(p => p.id === planId);
-            const task = plan?.tasks.find(t => t.id === taskId);
+        // 🆕 修复任务掌握状态切换函数
+        function toggleTaskMastered(planId, taskId) {
+            console.log(`🎯 切换任务掌握状态: 计划${planId}, 任务${taskId}`);
             
-            if (task) {
-                task.masteredCompleted = !task.masteredCompleted;
-                updateTaskPoints(task);
-                updatePlanStats(plan);
-                saveData();
-                updateTotalPoints();
-                updateStudyDisplay();
-                
-                // 播放掌握提醒 - 添加调试信息
-                if (task.masteredCompleted) {
-                    console.log('尝试播放掌握完成语音提醒:', task.name, '积分:', task.earnedPoints);
-                    if (voiceReminder) {
-                        console.log('语音提醒对象存在，检查设置:', voiceReminder.isEnabled, voiceReminder.reminderTypes.taskMaster);
-                        if (voiceReminder.isEnabled && voiceReminder.reminderTypes.taskMaster) {
-                            console.log('开始播放掌握完成语音');
-                            voiceReminder.playTaskMasterReminder(task.name, task.earnedPoints);
-                        } else {
-                            console.log('语音提醒被禁用或任务掌握提醒被关闭');
-                        }
-                    } else {
-                        console.log('语音提醒对象不存在');
+            const dateKey = getDateKey(currentStudyDate);
+            const plan = studyData[dateKey].find(p => p.id === planId);
+            
+            if (plan) {
+                const task = plan.tasks.find(t => t.id === taskId);
+                if (task) {
+                    const wasMastered = task.mastered;
+                    task.mastered = !task.mastered;
+                    
+                    console.log(`🏆 任务掌握状态已更新: ${task.name} = ${task.mastered ? '已掌握' : '未掌握'}`);
+                    
+                    // 🆕 播放任务掌握语音提醒
+                    if (task.mastered && window.voiceReminder && window.voiceReminder.canPlayReminder('taskMaster')) {
+                        console.log('🔊 播放任务掌握语音提醒');
+                        window.voiceReminder.playTaskMasterReminder(task.name, task.points || 10);
                     }
+                    
+                    saveStudyData();
+                    renderStudyPlans();
+                    updateTotalPoints();
                 }
             }
         }
@@ -3368,157 +3448,252 @@
 
         // 🆕 增强版语音功能初始化，确保强制更新后正常工作
         function initializeVoiceReminderWithRetry() {
-            console.log('🚀 开始增强版语音功能初始化...');
+            console.log('🚀 开始强化版语音系统初始化...');
+            
+            // 检查浏览器兼容性
+            if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) {
+                console.error('❌ 浏览器不支持语音合成API');
+                showVoiceUnsupportedMessage();
+                return;
+            }
             
             let initAttempts = 0;
-            const maxInitAttempts = 3;
+            const maxAttempts = 3;
             
-            const attemptVoiceInit = () => {
+            function attemptInitialization() {
                 initAttempts++;
-                console.log(`🔄 语音初始化尝试 ${initAttempts}/${maxInitAttempts}`);
+                console.log(`🔄 语音系统初始化尝试 ${initAttempts}/${maxAttempts}`);
                 
                 try {
-                    // 检查基本API支持
-                    if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) {
-                        console.error('❌ 浏览器不支持语音合成API');
-                        
-                        if (initAttempts < maxInitAttempts) {
-                            console.log(`⏳ 等待 ${initAttempts * 1000}ms 后重试...`);
-                            setTimeout(attemptVoiceInit, initAttempts * 1000);
-                            return;
-                        }
-                        
-                        showVoiceInitError('浏览器不支持语音合成功能');
-                        return;
-                    }
-                    
-                    // 检查语音合成对象
-                    if (!window.speechSynthesis) {
-                        console.error('❌ speechSynthesis 对象不可用');
-                        
-                        if (initAttempts < maxInitAttempts) {
-                            setTimeout(attemptVoiceInit, initAttempts * 1000);
-                            return;
-                        }
-                        
-                        showVoiceInitError('语音合成对象不可用');
-                        return;
-                    }
-                    
                     // 创建语音提醒实例
-                    console.log('🎤 创建语音提醒实例...');
                     window.voiceReminder = new VoiceReminder();
                     
-                    // 检查实例是否创建成功
-                    if (window.voiceReminder && window.voiceReminder.speechSynthesis) {
-                        console.log('✅ 语音提醒系统初始化成功');
-                        
-                        // 更新语音指示器
-                        updateVoiceIndicator();
-                        
-                        // 显示成功通知
-                        showVoiceInitSuccess();
-                    } else {
-                        console.warn('⚠️ 语音提醒实例创建但引擎未初始化');
-                        
-                        if (initAttempts < maxInitAttempts) {
-                            setTimeout(attemptVoiceInit, initAttempts * 1000);
-                            return;
+                    // 等待初始化完成
+                    setTimeout(() => {
+                        if (window.voiceReminder && window.voiceReminder.speechSynthesis) {
+                            console.log('✅ 语音系统初始化成功');
+                            
+                            // 更新语音指示器
+                            updateVoiceIndicator();
+                            
+                            // 检查并设置语音提醒
+                            checkAndSetupVoiceReminders();
+                            
+                            // 播放页面刷新提醒
+                            playPageRefreshReminder();
+                            
+                        } else {
+                            console.warn(`⚠️ 语音系统初始化未完成，尝试 ${initAttempts}/${maxAttempts}`);
+                            
+                            if (initAttempts < maxAttempts) {
+                                setTimeout(attemptInitialization, 1000 * initAttempts);
+                            } else {
+                                console.error('❌ 语音系统初始化失败，达到最大尝试次数');
+                                showVoiceInitFailedMessage();
+                            }
                         }
-                        
-                        showVoiceInitError('语音引擎初始化失败');
-                    }
+                    }, 500);
                     
                 } catch (error) {
-                    console.error('💥 语音初始化异常:', error);
+                    console.error(`💥 语音系统初始化异常 (尝试 ${initAttempts}):`, error);
                     
-                    if (initAttempts < maxInitAttempts) {
-                        setTimeout(attemptVoiceInit, initAttempts * 1000);
+                    if (initAttempts < maxAttempts) {
+                        setTimeout(attemptInitialization, 1000 * initAttempts);
                     } else {
-                        showVoiceInitError('语音初始化异常: ' + error.message);
+                        showVoiceInitFailedMessage();
                     }
                 }
-            };
+            }
             
-            // 立即尝试初始化
-            attemptVoiceInit();
+            // 开始初始化
+            attemptInitialization();
         }
 
-        /**
-         * 🆕 显示语音初始化错误
-         */
-        function showVoiceInitError(message) {
-            console.error('💥 语音初始化最终失败:', message);
+        // 🆕 播放页面刷新提醒
+        function playPageRefreshReminder() {
+            console.log('🔄 准备播放页面刷新提醒...');
             
-            setTimeout(() => {
-                if (document.querySelector('.voice-init-error')) return;
+            if (!window.voiceReminder || !window.voiceReminder.speechSynthesis) {
+                console.warn('⚠️ 语音系统不可用，跳过页面刷新提醒');
+                return;
+            }
+            
+            if (!window.voiceReminder.isEnabled) {
+                console.log('ℹ️ 语音提醒已禁用，跳过页面刷新提醒');
+                return;
+            }
+            
+            // 检查是否是页面刷新（而不是首次加载）
+            const isPageRefresh = performance.navigation.type === 1;
+            const hasExistingData = localStorage.getItem('studyData') !== null;
+            
+            if (isPageRefresh || hasExistingData) {
+                console.log('🔊 播放页面刷新语音提醒');
                 
-                const errorDiv = document.createElement('div');
-                errorDiv.className = 'voice-init-error';
-                errorDiv.style.cssText = `
-                    position: fixed;
-                    top: 80px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    background: linear-gradient(135deg, #ff6b6b, #ee5a52);
-                    color: white;
-                    padding: 15px 20px;
-                    border-radius: 20px;
-                    font-size: 13px;
-                    font-weight: bold;
-                    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-                    z-index: 10001;
-                    max-width: 90%;
-                    text-align: center;
-                    animation: slideInStay 0.5s ease-out;
-                `;
+                const refreshMessages = [
+                    '页面已刷新，学习打卡系统已准备就绪',
+                    '欢迎回来！继续你的学习计划吧',
+                    '系统已重新加载，语音提醒功能正常',
+                    '学习打卡应用已启动，开始新的一天吧'
+                ];
                 
-                errorDiv.innerHTML = `
-                    🔇 语音功能初始化失败<br>
-                    <span style="font-size: 11px; opacity: 0.9;">
-                        ${message}<br>
-                        <button onclick="this.parentElement.parentElement.remove(); location.reload();" 
-                                style="margin-top: 8px; padding: 4px 12px; border: none; border-radius: 10px; 
-                                       background: rgba(255,255,255,0.2); color: white; font-size: 10px; cursor: pointer;">
-                            刷新页面重试
-                        </button>
-                    </span>
-                `;
+                const message = refreshMessages[Math.floor(Math.random() * refreshMessages.length)];
                 
-                document.body.appendChild(errorDiv);
-            }, 500);
+                // 延迟播放，确保系统完全准备就绪
+                setTimeout(() => {
+                    window.voiceReminder.speak(message, 'encouragement');
+                }, 1500);
+            } else {
+                console.log('🆕 首次加载页面，播放欢迎语音');
+                
+                setTimeout(() => {
+                    window.voiceReminder.speak('欢迎使用学习打卡应用！开始制定你的学习计划吧', 'encouragement');
+                }, 2000);
+            }
         }
 
-        /**
-         * 🆕 显示语音初始化成功
-         */
-        function showVoiceInitSuccess() {
-            const successDiv = document.createElement('div');
-            successDiv.style.cssText = `
+        // 🆕 显示语音不支持消息
+        function showVoiceUnsupportedMessage() {
+            const message = document.createElement('div');
+            message.style.cssText = `
                 position: fixed;
-                top: 80px;
+                top: 20px;
                 left: 50%;
                 transform: translateX(-50%);
-                background: linear-gradient(135deg, #51cf66, #69db7c);
+                background: linear-gradient(135deg, #ff6b6b, #ee5a52);
                 color: white;
-                padding: 10px 15px;
-                border-radius: 20px;
-                font-size: 12px;
+                padding: 15px 20px;
+                border-radius: 25px;
+                font-size: 14px;
                 font-weight: bold;
-                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-                z-index: 10001;
-                animation: fadeInOut 3s ease-in-out;
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+                z-index: 10000;
+                max-width: 90%;
+                text-align: center;
+                animation: fadeInOut 10s ease-in-out;
             `;
             
-            successDiv.innerHTML = '🔊 语音功能已启用';
-            document.body.appendChild(successDiv);
+            message.innerHTML = `
+                🔇 您的浏览器不支持语音功能<br>
+                <span style="font-size: 12px; opacity: 0.9;">
+                    建议使用Chrome、Firefox、Safari或Edge浏览器
+                </span>
+            `;
+            
+            document.body.appendChild(message);
             
             setTimeout(() => {
-                if (successDiv && successDiv.parentNode) {
-                    successDiv.remove();
+                if (message && message.parentNode) {
+                    message.remove();
                 }
-            }, 3000);
+            }, 10000);
         }
+
+        // 🆕 显示语音初始化失败消息
+        function showVoiceInitFailedMessage() {
+            const message = document.createElement('div');
+            message.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: linear-gradient(135deg, #ffa726, #ff9800);
+                color: white;
+                padding: 15px 20px;
+                border-radius: 25px;
+                font-size: 14px;
+                font-weight: bold;
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+                z-index: 10000;
+                max-width: 90%;
+                text-align: center;
+                animation: fadeInOut 12s ease-in-out;
+                cursor: pointer;
+            `;
+            
+            message.innerHTML = `
+                ⚠️ 语音功能初始化失败<br>
+                <span style="font-size: 12px; opacity: 0.9;">
+                    点击重试或刷新页面<br>
+                    可能需要手动允许音频播放
+                </span>
+            `;
+            
+            message.onclick = () => {
+                message.remove();
+                initializeVoiceReminderWithRetry();
+            };
+            
+            document.body.appendChild(message);
+            
+            setTimeout(() => {
+                if (message && message.parentNode) {
+                    message.remove();
+                }
+            }, 12000);
+        }
+
+        // 🆕 显示语音系统详细状态
+        function showVoiceSystemStatus() {
+            const hasVoiceReminder = window.voiceReminder && window.voiceReminder.speechSynthesis;
+            const isEnabled = hasVoiceReminder ? window.voiceReminder.isEnabled : false;
+            const stats = hasVoiceReminder ? window.voiceReminder.getEnabledReminderStats() : { enabled: 0, total: 0 };
+            
+            const statusInfo = `
+🔊 语音系统状态报告
+
+• 语音引擎: ${hasVoiceReminder ? '✅ 可用' : '❌ 不可用'}
+• 主开关: ${isEnabled ? '✅ 已启用' : '❌ 已禁用'}
+• 提醒类型: ${stats.enabled}/${stats.total} 个已启用
+• Service Worker: ${hasVoiceReminder && window.voiceReminder.serviceWorkerReady ? '✅ 就绪' : '❌ 未就绪'}
+• 通知权限: ${Notification.permission}
+• Wake Lock: ${('wakeLock' in navigator) ? '✅ 支持' : '❌ 不支持'}
+• 语音合成: ${('speechSynthesis' in window) ? '✅ 支持' : '❌ 不支持'}
+
+${hasVoiceReminder ? '' : '⚠️ 请点击语音设置按钮重新初始化'}
+            `;
+            
+            alert(statusInfo);
+        }
+
+        // DOMContentLoaded 事件处理
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 页面加载完成，开始初始化...');
+            
+            // 加载存储的数据
+            loadStudyData();
+            
+            // 渲染学习计划
+            renderStudyPlans();
+            
+            // 更新总积分
+            updateTotalPoints();
+            
+            // 🆕 使用强化版语音系统初始化
+            console.log('🔊 启动强化版语音系统...');
+            setTimeout(() => {
+                initializeVoiceReminderWithRetry();
+            }, 500);
+            
+            // 创建语音指示器基础结构
+            const voiceIndicatorContainer = document.createElement('div');
+            voiceIndicatorContainer.id = 'voiceIndicatorContainer';
+            voiceIndicatorContainer.style.cssText = `
+                position: fixed;
+                bottom: 70px;
+                left: 20px;
+                z-index: 1000;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                pointer-events: none;
+            `;
+            
+            document.body.appendChild(voiceIndicatorContainer);
+            
+            console.log('✅ 页面初始化完成');
+        });
     </script>
 </body>
 </html> 
+
