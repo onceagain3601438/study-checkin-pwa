@@ -1540,6 +1540,14 @@
                         if (voiceReminder) {
                             console.log('语音提醒对象存在，设置任务提醒');
                             voiceReminder.setTaskReminder(task, plan.name);
+                            
+                            // 询问是否立即测试
+                            const testNow = confirm(`时间段已设置为：${timeSlot}\n\n是否立即测试语音提醒？\n点击"确定"将在5秒后播放测试提醒`);
+                            if (testNow) {
+                                console.log('用户选择立即测试时间提醒');
+                                voiceReminder.setTestReminder(task, plan.name, 5);
+                            }
+                            
                             if (voiceReminder.isEnabled && voiceReminder.reminderTypes.settingConfirm) {
                                 console.log('播放设置确认语音');
                                 voiceReminder.playSettingConfirmReminder('timeSlot', {
