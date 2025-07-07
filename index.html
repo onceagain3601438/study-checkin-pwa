@@ -576,6 +576,66 @@
                 min-width: 40px;
             }
         }
+        
+        /* 快速操作按钮样式 */
+        .quick-action-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .quick-action-btn {
+            padding: 12px 8px;
+            border: none;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .quick-action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .quick-action-btn:active {
+            transform: translateY(0);
+        }
+        
+        .quick-action-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .quick-action-btn:hover::before {
+            left: 100%;
+        }
+        
+        .btn-copy {
+            background: linear-gradient(135deg, #ff9a56, #ff6b35);
+            color: white;
+        }
+        
+        .btn-template {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        
+        .btn-default {
+            background: linear-gradient(135deg, #51cf66, #69db7c);
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -671,7 +731,20 @@
         <div class="empty-state" id="emptyState">
             <div style="font-size: 30px; margin-bottom: 10px;">📚</div>
             <div style="font-size: 14px; font-weight: bold; margin-bottom: 5px;">还没有学习计划</div>
-            <div style="font-size: 12px; color: #666;">点击下方按钮创建你的第一个学习计划</div>
+            <div style="font-size: 12px; color: #666; margin-bottom: 20px;">点击下方按钮创建你的第一个学习计划</div>
+            
+            <!-- 快速操作按钮组 -->
+            <div class="quick-action-buttons">
+                <button class="quick-action-btn btn-copy" onclick="copyYesterday()" style="font-size: 11px; padding: 8px 4px;">
+                    📋 复制昨天
+                </button>
+                <button class="quick-action-btn btn-template" onclick="loadTemplate()" style="font-size: 11px; padding: 8px 4px;">
+                    📁 加载模板
+                </button>
+                <button class="quick-action-btn btn-default" onclick="loadDefaultPlan()" style="font-size: 11px; padding: 8px 4px;">
+                    ⭐ 默认计划
+                </button>
+            </div>
         </div>
 
         <button class="add-plan-btn" onclick="showAddPlanModal()">+ 添加学习计划</button>
@@ -1356,6 +1429,217 @@
             const modal = document.getElementById('addPlanModal');
             if (event.target == modal) {
                 hideAddPlanModal();
+            }
+        }
+
+        // 复制昨天的学习计划
+        function copyYesterday() {
+            const yesterday = new Date(currentStudyDate);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayKey = getDateKey(yesterday);
+            const yesterdayPlans = studyData[yesterdayKey] || [];
+            
+            if (yesterdayPlans.length === 0) {
+                alert('昨天没有学习计划可以复制');
+                return;
+            }
+            
+            if (!confirm(`确定要复制昨天(${formatDate(yesterday)})的${yesterdayPlans.length}个学习计划吗？`)) {
+                return;
+            }
+            
+            const today = getDateKey(currentStudyDate);
+            if (!studyData[today]) {
+                studyData[today] = [];
+            }
+            
+            // 复制昨天的计划到今天
+            yesterdayPlans.forEach(plan => {
+                const newPlan = {
+                    id: Date.now() + Math.random(),
+                    name: plan.name,
+                    tasks: plan.tasks.map(task => ({
+                        id: Date.now() + Math.random(),
+                        name: task.name,
+                        timeSlot: task.timeSlot,
+                        studyCompleted: false,
+                        masteredCompleted: false,
+                        points: task.points,
+                        earnedPoints: 0
+                    })),
+                    completionRate: 0,
+                    completedTasks: 0,
+                    totalTasks: plan.totalTasks,
+                    earnedPoints: 0,
+                    totalPoints: plan.totalPoints
+                };
+                studyData[today].push(newPlan);
+            });
+            
+            saveData();
+            updateStudyDisplay();
+            
+            // 播放成功提醒
+            if (voiceReminder) {
+                voiceReminder.speak('已成功复制昨天的学习计划！今天继续加油！', 'planAdded');
+            }
+        }
+
+        // 加载学习模板
+        function loadTemplate() {
+            const templates = [
+                {
+                    name: '高效学习模板',
+                    tasks: [
+                        { name: '晨读英语', timeSlot: '7:00-7:30', points: 10 },
+                        { name: '数学练习', timeSlot: '9:00-10:00', points: 15 },
+                        { name: '专业课学习', timeSlot: '14:00-16:00', points: 20 },
+                        { name: '复习总结', timeSlot: '20:00-21:00', points: 15 }
+                    ]
+                },
+                {
+                    name: '考试冲刺模板',
+                    tasks: [
+                        { name: '重点知识复习', timeSlot: '8:00-10:00', points: 25 },
+                        { name: '刷题练习', timeSlot: '14:00-16:00', points: 20 },
+                        { name: '错题整理', timeSlot: '19:00-20:00', points: 15 },
+                        { name: '知识梳理', timeSlot: '21:00-22:00', points: 15 }
+                    ]
+                },
+                {
+                    name: '语言学习模板',
+                    tasks: [
+                        { name: '单词记忆', timeSlot: '7:00-7:30', points: 10 },
+                        { name: '听力练习', timeSlot: '12:00-12:30', points: 10 },
+                        { name: '阅读理解', timeSlot: '15:00-16:00', points: 15 },
+                        { name: '口语练习', timeSlot: '20:00-20:30', points: 10 }
+                    ]
+                },
+                {
+                    name: '技能提升模板',
+                    tasks: [
+                        { name: '编程实践', timeSlot: '9:00-11:00', points: 20 },
+                        { name: '理论学习', timeSlot: '14:00-15:30', points: 15 },
+                        { name: '项目练习', timeSlot: '19:00-21:00', points: 25 },
+                        { name: '技术总结', timeSlot: '21:30-22:00', points: 10 }
+                    ]
+                }
+            ];
+            
+            const templateList = templates.map((template, index) => 
+                `${index + 1}. ${template.name} (${template.tasks.length}个任务)`
+            ).join('\n');
+            
+            const choice = prompt(`请选择学习模板：\n\n${templateList}\n\n请输入模板编号 (1-${templates.length}):`);
+            
+            if (!choice || isNaN(choice) || choice < 1 || choice > templates.length) {
+                return;
+            }
+            
+            const selectedTemplate = templates[choice - 1];
+            const today = getDateKey(currentStudyDate);
+            
+            if (!studyData[today]) {
+                studyData[today] = [];
+            }
+            
+            // 创建基于模板的学习计划
+            const newPlan = {
+                id: Date.now(),
+                name: selectedTemplate.name,
+                tasks: selectedTemplate.tasks.map((task, index) => ({
+                    id: Date.now() + index,
+                    name: task.name,
+                    timeSlot: task.timeSlot,
+                    studyCompleted: false,
+                    masteredCompleted: false,
+                    points: task.points,
+                    earnedPoints: 0
+                })),
+                completionRate: 0,
+                completedTasks: 0,
+                totalTasks: selectedTemplate.tasks.length,
+                earnedPoints: 0,
+                totalPoints: selectedTemplate.tasks.reduce((sum, task) => sum + task.points, 0)
+            };
+            
+            studyData[today].push(newPlan);
+            saveData();
+            updateStudyDisplay();
+            
+            // 播放成功提醒
+            if (voiceReminder) {
+                voiceReminder.speak(`已成功加载${selectedTemplate.name}！开始今天的学习吧！`, 'planAdded');
+            }
+        }
+
+        // 加载默认学习计划
+        function loadDefaultPlan() {
+            if (!confirm('确定要加载默认学习计划吗？这将创建一个基础的日常学习安排。')) {
+                return;
+            }
+            
+            const today = getDateKey(currentStudyDate);
+            if (!studyData[today]) {
+                studyData[today] = [];
+            }
+            
+            // 创建默认学习计划
+            const defaultPlan = {
+                id: Date.now(),
+                name: '默认学习计划',
+                tasks: [
+                    {
+                        id: Date.now() + 1,
+                        name: '晨读时光',
+                        timeSlot: '7:30-8:00',
+                        studyCompleted: false,
+                        masteredCompleted: false,
+                        points: 10,
+                        earnedPoints: 0
+                    },
+                    {
+                        id: Date.now() + 2,
+                        name: '上午学习',
+                        timeSlot: '9:00-10:30',
+                        studyCompleted: false,
+                        masteredCompleted: false,
+                        points: 20,
+                        earnedPoints: 0
+                    },
+                    {
+                        id: Date.now() + 3,
+                        name: '下午复习',
+                        timeSlot: '14:30-16:00',
+                        studyCompleted: false,
+                        masteredCompleted: false,
+                        points: 20,
+                        earnedPoints: 0
+                    },
+                    {
+                        id: Date.now() + 4,
+                        name: '晚间总结',
+                        timeSlot: '20:00-21:00',
+                        studyCompleted: false,
+                        masteredCompleted: false,
+                        points: 15,
+                        earnedPoints: 0
+                    }
+                ],
+                completionRate: 0,
+                completedTasks: 0,
+                totalTasks: 4,
+                earnedPoints: 0,
+                totalPoints: 65
+            };
+            
+            studyData[today].push(defaultPlan);
+            saveData();
+            updateStudyDisplay();
+            
+            // 播放成功提醒
+            if (voiceReminder) {
+                voiceReminder.speak('默认学习计划已创建！开始你的学习之旅吧！', 'planAdded');
             }
         }
 
