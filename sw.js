@@ -262,4 +262,8 @@ setInterval(() => {
   });
 }, 60000); // 每分钟检查一次
 
+<<<<<<< HEAD
 console.log('Enhanced Service Worker loaded successfully'); 
+=======
+console.log('Enhanced Service Worker loaded successfully'); 
+>>>>>>> 96eef1f644f5363606e1be9cb80daeda17b8471c
