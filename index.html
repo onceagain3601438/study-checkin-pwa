@@ -1379,6 +1379,26 @@
                 navigator.serviceWorker.register('./sw.js').then((registration) => {
                     console.log('Service Worker 注册成功:', registration);
                     
+                    // 🆕 监听Service Worker消息（强制更新处理）
+                    navigator.serviceWorker.addEventListener('message', (event) => {
+                        console.log('收到Service Worker消息:', event.data);
+                        
+                        if (event.data.type === 'FORCE_UPDATE_AVAILABLE') {
+                            handleForceUpdate(event.data);
+                        } else if (event.data.type === 'CACHE_CLEANED') {
+                            console.log('✅ 缓存已清理，版本:', event.data.version);
+                            showUpdateNotification('缓存已更新到最新版本');
+                        } else if (event.data.type === 'CACHE_CLEARED') {
+                            console.log('✅ 强制缓存清除完成');
+                            showUpdateNotification('缓存清除完成，请刷新页面');
+                        } else if (event.data.type === 'REMINDER_TRIGGERED') {
+                            // 语音提醒处理
+                            if (!document.hidden && voiceReminder) {
+                                voiceReminder.playReminderFromServiceWorker(event.data.reminder);
+                            }
+                        }
+                    });
+                    
                     // 检查是否有更新
                     registration.addEventListener('updatefound', () => {
                         console.log('发现Service Worker更新');
@@ -1387,9 +1407,12 @@
                         newWorker.addEventListener('statechange', () => {
                             if (newWorker.state === 'installed') {
                                 if (navigator.serviceWorker.controller) {
-                                    // 有新版本可用
-                                    console.log('新版本可用，准备更新');
-                                    showUpdateAvailable(newWorker);
+                                    // 有新版本可用，强制更新
+                                    console.log('新版本可用，准备强制更新');
+                                    handleForceUpdate({
+                                        version: 'new',
+                                        message: '发现新版本，正在更新...'
+                                    });
                                 } else {
                                     // 首次安装
                                     console.log('PWA首次安装完成');
@@ -1403,23 +1426,15 @@
                 }).then((registration) => {
                     console.log('Service Worker 已准备就绪:', registration);
                     
+                    // 🆕 检查版本并处理不一致
+                    checkVersionConsistency(registration);
+                    
                     // 更新语音指示器状态
                     if (voiceReminder) {
                         voiceReminder.serviceWorkerReady = true;
                         updateVoiceIndicator();
                     }
                     
-                    // 监听Service Worker消息
-                    navigator.serviceWorker.addEventListener('message', (event) => {
-                        console.log('收到Service Worker消息:', event.data);
-                        
-                        if (event.data.type === 'REMINDER_TRIGGERED') {
-                            // 如果页面可见，同时播放语音
-                            if (!document.hidden && voiceReminder) {
-                                voiceReminder.playReminderFromServiceWorker(event.data.reminder);
-                            }
-                        }
-                    });
                 }).catch((error) => {
                     console.error('Service Worker 注册失败:', error);
                     
@@ -1430,32 +1445,189 @@
                         }, 2000);
                     } else {
                         console.error('Service Worker 注册失败，已达到最大重试次数');
+                        showUpdateNotification('Service Worker注册失败，某些功能可能不可用');
                     }
                 });
             } else {
                 console.warn('浏览器不支持Service Worker');
+                showUpdateNotification('浏览器不支持离线功能');
             }
         }
 
         /**
-         * 显示更新可用提示
+         * 🆕 检查版本一致性
          */
-        function showUpdateAvailable(newWorker) {
-            const updateMessage = '发现新版本！点击更新以获取最新功能。';
-            
-            if (confirm(updateMessage)) {
-                // 用户同意更新
-                newWorker.postMessage({ type: 'SKIP_WAITING' });
+        async function checkVersionConsistency(registration) {
+            try {
+                console.log('🔍 检查版本一致性...');
                 
-                // 监听Service Worker状态变化
-                newWorker.addEventListener('statechange', () => {
-                    if (newWorker.state === 'activated') {
-                        // 新版本已激活，重新加载页面
-                        window.location.reload();
+                // 获取当前Service Worker版本
+                if (registration.active) {
+                    const messageChannel = new MessageChannel();
+                    
+                    messageChannel.port1.onmessage = (event) => {
+                        const versionInfo = event.data;
+                        console.log('📋 当前版本信息:', versionInfo);
+                        
+                        // 检查是否需要强制更新
+                        const expectedVersion = '2024-01-07-002';
+                        if (versionInfo.cacheVersion !== expectedVersion) {
+                            console.warn('⚠️ 版本不一致，需要强制更新');
+                            handleForceUpdate({
+                                version: expectedVersion,
+                                currentVersion: versionInfo.cacheVersion,
+                                message: '检测到版本不一致，正在强制更新...'
+                            });
+                        } else {
+                            console.log('✅ 版本一致，无需更新');
+                        }
+                    };
+                    
+                    registration.active.postMessage({
+                        type: 'GET_VERSION'
+                    }, [messageChannel.port2]);
+                }
+                
+            } catch (error) {
+                console.error('💥 版本检查失败:', error);
+            }
+        }
+
+        /**
+         * 🆕 处理强制更新
+         */
+        function handleForceUpdate(updateInfo) {
+            console.log('🚀 开始处理强制更新:', updateInfo);
+            
+            // 显示更新通知
+            showUpdateNotification(`正在更新到版本 ${updateInfo.version}...`, 'info');
+            
+            // 延迟执行强制刷新，给用户一点时间看到通知
+            setTimeout(() => {
+                console.log('🔄 执行强制页面刷新...');
+                
+                // 清除所有本地缓存
+                if ('caches' in window) {
+                    caches.keys().then((cacheNames) => {
+                        const deletePromises = cacheNames.map(cacheName => {
+                            console.log('🗑️ 删除本地缓存:', cacheName);
+                            return caches.delete(cacheName);
+                        });
+                        
+                        return Promise.all(deletePromises);
+                    }).then(() => {
+                        console.log('✅ 本地缓存已清除');
+                        // 强制刷新页面，添加时间戳防止缓存
+                        window.location.href = window.location.href.split('?')[0] + '?v=' + Date.now();
+                    }).catch((error) => {
+                        console.error('💥 清除缓存失败:', error);
+                        // 即使清除缓存失败，也要刷新页面
+                        window.location.reload(true);
+                    });
+                } else {
+                    // 浏览器不支持缓存API，直接强制刷新
+                    window.location.reload(true);
+                }
+            }, 1500);
+        }
+
+        /**
+         * 🆕 显示更新通知
+         */
+        function showUpdateNotification(message, type = 'success') {
+            // 移除已存在的通知
+            const existingNotification = document.querySelector('.update-notification');
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+            
+            // 创建新的通知
+            const notification = document.createElement('div');
+            notification.className = 'update-notification';
+            
+            const bgColor = type === 'info' ? 'linear-gradient(135deg, #667eea, #764ba2)' : 
+                           type === 'warning' ? 'linear-gradient(135deg, #ff9a56, #ff6b35)' :
+                           'linear-gradient(135deg, #51cf66, #69db7c)';
+            
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: ${bgColor};
+                color: white;
+                padding: 12px 20px;
+                border-radius: 25px;
+                font-size: 13px;
+                font-weight: bold;
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+                z-index: 9999;
+                animation: slideInOut 3s ease-in-out;
+                max-width: 90%;
+                text-align: center;
+            `;
+            
+            notification.innerHTML = message;
+            
+            // 添加动画样式
+            if (!document.querySelector('#updateNotificationStyle')) {
+                const style = document.createElement('style');
+                style.id = 'updateNotificationStyle';
+                style.textContent = `
+                    @keyframes slideInOut {
+                        0% { 
+                            opacity: 0; 
+                            transform: translateX(-50%) translateY(-30px); 
+                        }
+                        15%, 85% { 
+                            opacity: 1; 
+                            transform: translateX(-50%) translateY(0); 
+                        }
+                        100% { 
+                            opacity: 0; 
+                            transform: translateX(-50%) translateY(-30px); 
+                        }
                     }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            document.body.appendChild(notification);
+            
+            // 3秒后自动移除
+            setTimeout(() => {
+                if (notification && notification.parentNode) {
+                    notification.remove();
+                }
+            }, 3000);
+        }
+
+        /**
+         * 🆕 手动强制更新功能
+         */
+        function manualForceUpdate() {
+            console.log('🔄 用户手动触发强制更新');
+            
+            const confirmUpdate = confirm('确定要强制更新到最新版本吗？\n\n这将清除所有缓存并重新加载页面。');
+            
+            if (confirmUpdate) {
+                // 向Service Worker发送强制清除缓存消息
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        type: 'FORCE_CACHE_CLEAR'
+                    });
+                }
+                
+                // 执行强制更新
+                handleForceUpdate({
+                    version: '最新版本',
+                    message: '手动强制更新中...'
                 });
             }
         }
+
+        // 🆕 在全局暴露手动更新函数
+        window.manualForceUpdate = manualForceUpdate;
 
         /**
          * 强制检查更新（用于解决缓存问题）
@@ -1848,12 +2020,21 @@
                     alert('✅ 更新检查完成！\n\n如果仍有问题，请选择清除缓存选项。');
                 }, 2000);
             } else {
-                // 清除所有缓存并重新加载
-                const confirmClear = confirm('⚠️ 即将清除所有缓存并重新加载\n\n这将重新下载所有文件，确保获得最新版本。\n\n确定继续吗？');
+                // 显示更强的清除选项
+                const clearOptions = '🗑️ 缓存清除选项\n\n' +
+                                   '选择清除方式：\n\n' +
+                                   '✅ 确定：智能清除（推荐）\n' +
+                                   '🔥 取消：强制更新到最新版本\n\n' +
+                                   '💡 强制更新会确保所有设备获得相同版本';
                 
-                if (confirmClear) {
-                    console.log('用户确认清除缓存');
+                const clearChoice = confirm(clearOptions);
+                
+                if (clearChoice) {
+                    // 智能清除
                     clearCacheAndReload();
+                } else {
+                    // 强制更新到最新版本
+                    manualForceUpdate();
                 }
             }
         }
