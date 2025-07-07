@@ -394,6 +394,18 @@ class VoiceReminder {
         }
 
         try {
+            // 检测浏览器类型
+            const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+            const isFirefox = /Firefox/.test(navigator.userAgent);
+            const isSafari = /Safari/.test(navigator.userAgent) && /Apple Computer/.test(navigator.vendor);
+            
+            console.log('🔍 浏览器检测:', {
+                isChrome,
+                isFirefox, 
+                isSafari,
+                userAgent: navigator.userAgent
+            });
+
             // 检查语音合成是否可用
             const voices = speechSynthesis.getVoices();
             console.log(`🎤 可用语音数量: ${voices.length}`);
@@ -407,12 +419,21 @@ class VoiceReminder {
                 }, { once: true });
             }
 
-            // 创建一个静音的测试语音来激活引擎
+            // 针对不同浏览器使用不同的激活策略
             if (!this.engineActivated) {
                 console.log('🔧 激活语音引擎...');
-                const testUtterance = new SpeechSynthesisUtterance('');
-                testUtterance.volume = 0;
-                speechSynthesis.speak(testUtterance);
+                
+                if (isChrome || isFirefox) {
+                    // Chrome和Firefox需要更强的激活机制
+                    this.activateForStrictBrowsers();
+                } else if (isSafari) {
+                    // Safari使用标准激活
+                    this.activateForSafari();
+                } else {
+                    // 其他浏览器使用通用激活
+                    this.activateGeneric();
+                }
+                
                 this.engineActivated = true;
                 console.log('✅ 语音引擎已激活');
             }
@@ -422,6 +443,125 @@ class VoiceReminder {
             console.error('💥 激活语音引擎失败:', error);
             return false;
         }
+    }
+
+    /**
+     * 为Chrome和Firefox等严格浏览器激活语音
+     */
+    activateForStrictBrowsers() {
+        console.log('🔒 使用严格模式激活语音引擎');
+        
+        try {
+            // 方法1：创建静音的短语音
+            const utterance1 = new SpeechSynthesisUtterance('');
+            utterance1.volume = 0.01;
+            utterance1.rate = 10;
+            utterance1.pitch = 0.1;
+            speechSynthesis.speak(utterance1);
+            
+            // 方法2：创建极短的文本语音
+            setTimeout(() => {
+                const utterance2 = new SpeechSynthesisUtterance('.');
+                utterance2.volume = 0.01;
+                utterance2.rate = 10;
+                speechSynthesis.speak(utterance2);
+            }, 50);
+            
+            // 方法3：尝试取消和重新激活
+            setTimeout(() => {
+                speechSynthesis.cancel();
+                const utterance3 = new SpeechSynthesisUtterance(' ');
+                utterance3.volume = 0.01;
+                speechSynthesis.speak(utterance3);
+            }, 100);
+            
+            console.log('✅ 严格模式激活完成');
+        } catch (error) {
+            console.error('💥 严格模式激活失败:', error);
+        }
+    }
+
+    /**
+     * 为Safari激活语音
+     */
+    activateForSafari() {
+        console.log('🍎 使用Safari模式激活语音引擎');
+        
+        try {
+            const testUtterance = new SpeechSynthesisUtterance('');
+            testUtterance.volume = 0;
+            speechSynthesis.speak(testUtterance);
+            console.log('✅ Safari模式激活完成');
+        } catch (error) {
+            console.error('💥 Safari模式激活失败:', error);
+        }
+    }
+
+    /**
+     * 通用激活方法
+     */
+    activateGeneric() {
+        console.log('🌐 使用通用模式激活语音引擎');
+        
+        try {
+            const testUtterance = new SpeechSynthesisUtterance('test');
+            testUtterance.volume = 0.01;
+            testUtterance.rate = 5;
+            speechSynthesis.speak(testUtterance);
+            console.log('✅ 通用模式激活完成');
+        } catch (error) {
+            console.error('💥 通用模式激活失败:', error);
+        }
+    }
+
+    /**
+     * 检查语音引擎是否真正可用
+     */
+    async checkVoiceEngineReady() {
+        return new Promise((resolve) => {
+            // 创建测试语音
+            const testUtterance = new SpeechSynthesisUtterance('test');
+            testUtterance.volume = 0.01;
+            testUtterance.rate = 10;
+            
+            let resolved = false;
+            
+            testUtterance.onstart = () => {
+                if (!resolved) {
+                    resolved = true;
+                    console.log('✅ 语音引擎确认可用');
+                    resolve(true);
+                }
+            };
+            
+            testUtterance.onend = () => {
+                if (!resolved) {
+                    resolved = true;
+                    console.log('✅ 语音引擎测试完成');
+                    resolve(true);
+                }
+            };
+            
+            testUtterance.onerror = () => {
+                if (!resolved) {
+                    resolved = true;
+                    console.log('❌ 语音引擎测试失败');
+                    resolve(false);
+                }
+            };
+            
+            // 播放测试语音
+            speechSynthesis.speak(testUtterance);
+            
+            // 超时机制
+            setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    console.log('⏰ 语音引擎测试超时');
+                    resolve(false);
+                }
+            }, 1000);
+        });
     }
 
     /**
@@ -1116,111 +1256,208 @@ class VoiceReminder {
     }
 
     /**
-     * 测试语音
+     * 测试语音功能
+     * 增强版本，支持严格浏览器策略
      */
-    testVoice() {
-        console.log('🧪 开始语音测试...');
+    async testVoice() {
+        console.log('🧪 开始测试语音功能...');
         
-        // 临时更新设置用于测试
-        const tempVolume = this.volume;
-        const tempRate = this.rate;
-        const tempPitch = this.pitch;
-        
-        this.volume = parseFloat(document.getElementById('voiceVolume').value);
-        this.rate = parseFloat(document.getElementById('voiceRate').value);
-        this.pitch = parseFloat(document.getElementById('voicePitch').value);
-        
-        console.log('🎛️ 测试参数:', {
-            volume: this.volume,
-            rate: this.rate,
-            pitch: this.pitch
-        });
-        
-        // 强制激活语音引擎
-        this.engineActivated = false;
-        if (!this.activateSpeechSynthesis()) {
-            alert('❌ 语音引擎激活失败！\n\n可能原因：\n1. 浏览器不支持语音功能\n2. 请尝试刷新页面\n3. 更换浏览器（推荐Chrome）');
-            return;
-        }
-        
-        // 测试语音只播放一次，使用强制模式
-        console.log('🎯 播放测试语音...');
-        this.speakForced('这是语音提醒测试，您的设置效果很好！');
-        
-        // 恢复原设置
-        setTimeout(() => {
-            this.volume = tempVolume;
-            this.rate = tempRate;
-            this.pitch = tempPitch;
-            console.log('🔄 测试参数已恢复');
-        }, 2000);
-    }
-
-    /**
-     * 强制播放语音（用于测试，绕过所有检查）
-     * @param {string} text - 要播放的文本
-     */
-    speakForced(text) {
-        console.log(`🔥 强制播放语音: "${text}"`);
-        
-        if (!('speechSynthesis' in window)) {
-            alert('❌ 您的浏览器不支持语音功能！\n\n请使用以下浏览器：\n• Chrome（推荐）\n• Firefox\n• Safari\n• Edge');
-            return;
+        if (!this.speechSynthesis) {
+            console.error('❌ 语音合成不可用');
+            alert('❌ 您的浏览器不支持语音功能');
+            return false;
         }
 
         try {
-            // 停止当前播放
-            speechSynthesis.cancel();
+            // 检测浏览器类型
+            const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+            const isFirefox = /Firefox/.test(navigator.userAgent);
+            const isStrictBrowser = isChrome || isFirefox;
             
-            // 等待一下再播放
-            setTimeout(() => {
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.volume = this.volume;
-                utterance.rate = this.rate;
-                utterance.pitch = this.pitch;
+            console.log('🔍 浏览器检测（测试）:', { isChrome, isFirefox, isStrictBrowser });
+            
+            if (isStrictBrowser) {
+                // 对于严格浏览器，需要更强的激活
+                console.log('🔒 检测到严格浏览器，执行强化激活...');
+                await this.forceActivateForStrictBrowsers();
+            }
+            
+            // 强制激活语音引擎
+            if (!this.activateSpeechSynthesis()) {
+                throw new Error('语音引擎激活失败');
+            }
+            
+            // 等待语音引擎准备就绪
+            const isReady = await this.checkVoiceEngineReady();
+            if (!isReady && isStrictBrowser) {
+                console.log('🔄 语音引擎未准备就绪，尝试重新激活...');
+                await this.forceActivateForStrictBrowsers();
+            }
+            
+            // 创建测试语音
+            const testText = '语音测试成功！系统工作正常！';
+            console.log('🎯 准备播放测试语音:', testText);
+            
+            return new Promise((resolve) => {
+                // 停止当前所有语音
+                this.speechSynthesis.cancel();
+                
+                const utterance = new SpeechSynthesisUtterance(testText);
+                utterance.volume = 0.8;
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
                 utterance.lang = 'zh-CN';
-
-                let hasStarted = false;
-
+                
+                let testCompleted = false;
+                
                 utterance.onstart = () => {
-                    hasStarted = true;
-                    console.log('✅ 强制语音测试开始播放');
+                    console.log('✅ 语音测试开始播放');
+                    this.updateStatus('testing', true);
                 };
-
+                
                 utterance.onend = () => {
-                    console.log('✅ 强制语音测试播放完成');
-                    if (hasStarted) {
-                        alert('🎉 语音测试成功！\n\n如果您听到了语音，说明功能正常。\n如果没有听到，请检查：\n1. 手机是否静音\n2. 音量是否合适\n3. 是否授权了音频权限');
+                    console.log('✅ 语音测试播放完成');
+                    if (!testCompleted) {
+                        testCompleted = true;
+                        this.updateStatus('testing', false);
+                        resolve(true);
                     }
                 };
-
-                utterance.onerror = (e) => {
-                    console.error('💥 强制语音测试失败:', e);
-                    alert(`❌ 语音测试失败！\n\n错误信息: ${e.error}\n\n解决方法：\n1. 刷新页面重试\n2. 检查浏览器音频权限\n3. 尝试其他浏览器`);
-                };
-
-                // 播放语音
-                speechSynthesis.speak(utterance);
-
-                // 检查是否真的在播放
-                setTimeout(() => {
-                    if (!speechSynthesis.speaking && !hasStarted) {
-                        console.warn('⚠️ 语音可能被阻止，显示用户指导');
-                        const shouldRetry = confirm(`🔊 语音可能被浏览器阻止\n\n请先确保：\n1. 手机没有静音\n2. 音量调到合适大小\n3. 允许网页播放音频\n\n点击"确定"重新测试，"取消"忽略`);
+                
+                utterance.onerror = (event) => {
+                    console.error('💥 语音测试失败:', event);
+                    if (!testCompleted) {
+                        testCompleted = true;
+                        this.updateStatus('testing', false);
                         
-                        if (shouldRetry) {
-                            // 重新尝试播放
-                            setTimeout(() => this.speakForced(text), 100);
+                        if (isStrictBrowser) {
+                            // 对于严格浏览器，给出特定的解决方案
+                            alert(`❌ 语音测试失败！\n\n${isChrome ? 'Chrome' : 'Firefox'}浏览器解决方案：\n\n1. 确保页面已经有用户交互（点击、滚动等）\n2. 检查浏览器设置是否允许音频播放\n3. 尝试刷新页面后重新测试\n4. 检查系统音量是否静音\n\n如果问题持续，建议使用Safari浏览器。`);
+                        } else {
+                            alert('❌ 语音测试失败，请检查浏览器设置和系统音量');
                         }
+                        resolve(false);
                     }
-                }, 500);
-
-            }, 100);
-
+                };
+                
+                // 播放测试语音
+                try {
+                    this.speechSynthesis.speak(utterance);
+                    console.log('🔊 语音测试指令已发送');
+                } catch (error) {
+                    console.error('💥 语音播放异常:', error);
+                    if (!testCompleted) {
+                        testCompleted = true;
+                        alert('语音播放异常: ' + error.message);
+                        resolve(false);
+                    }
+                }
+                
+                // 超时检查
+                setTimeout(() => {
+                    if (!testCompleted) {
+                        console.warn('⏰ 语音测试超时');
+                        testCompleted = true;
+                        this.updateStatus('testing', false);
+                        
+                        if (isStrictBrowser) {
+                            alert(`⏰ 语音测试超时！\n\n这通常是因为${isChrome ? 'Chrome' : 'Firefox'}浏览器的安全策略阻止了自动播放。\n\n解决方案：\n1. 多点击几次页面上的按钮\n2. 播放一段音频或视频\n3. 刷新页面后重新尝试\n4. 检查浏览器自动播放设置`);
+                        }
+                        resolve(false);
+                    }
+                }, 5000);
+            });
+            
         } catch (error) {
-            console.error('💥 强制语音播放异常:', error);
-            alert(`❌ 语音播放异常！\n\n错误: ${error.message}\n\n请尝试：\n1. 刷新页面\n2. 重启浏览器\n3. 检查系统音频设置`);
+            console.error('💥 语音测试异常:', error);
+            alert('语音测试异常: ' + error.message);
+            return false;
         }
+    }
+
+    /**
+     * 针对严格浏览器的强制激活
+     */
+    async forceActivateForStrictBrowsers() {
+        console.log('💪 开始强制激活语音引擎（严格模式）...');
+        
+        return new Promise((resolve) => {
+            let activationAttempts = 0;
+            const maxAttempts = 5;
+            
+            const attemptActivation = () => {
+                activationAttempts++;
+                console.log(`🔄 激活尝试 ${activationAttempts}/${maxAttempts}`);
+                
+                try {
+                    // 多重激活策略
+                    const strategies = [
+                        () => {
+                            // 策略1：创建极短的文本
+                            const u = new SpeechSynthesisUtterance('.');
+                            u.volume = 0.01;
+                            u.rate = 10;
+                            speechSynthesis.speak(u);
+                        },
+                        () => {
+                            // 策略2：空文本 + 低音量
+                            const u = new SpeechSynthesisUtterance('');
+                            u.volume = 0.001;
+                            speechSynthesis.speak(u);
+                        },
+                        () => {
+                            // 策略3：单个空格
+                            const u = new SpeechSynthesisUtterance(' ');
+                            u.volume = 0.05;
+                            u.rate = 5;
+                            speechSynthesis.speak(u);
+                        },
+                        () => {
+                            // 策略4：取消后重新尝试
+                            speechSynthesis.cancel();
+                            setTimeout(() => {
+                                const u = new SpeechSynthesisUtterance('test');
+                                u.volume = 0.01;
+                                u.rate = 10;
+                                speechSynthesis.speak(u);
+                            }, 10);
+                        }
+                    ];
+                    
+                    // 执行所有策略
+                    strategies.forEach((strategy, index) => {
+                        setTimeout(() => {
+                            try {
+                                strategy();
+                            } catch (error) {
+                                console.warn(`策略 ${index + 1} 执行失败:`, error);
+                            }
+                        }, index * 50);
+                    });
+                    
+                    // 检查激活是否成功
+                    setTimeout(() => {
+                        if (activationAttempts < maxAttempts) {
+                            attemptActivation();
+                        } else {
+                            console.log('✅ 强制激活完成（最大尝试次数）');
+                            resolve(true);
+                        }
+                    }, 200);
+                    
+                } catch (error) {
+                    console.error(`💥 激活尝试 ${activationAttempts} 失败:`, error);
+                    if (activationAttempts < maxAttempts) {
+                        setTimeout(attemptActivation, 100);
+                    } else {
+                        console.error('❌ 强制激活失败');
+                        resolve(false);
+                    }
+                }
+            };
+            
+            attemptActivation();
+        });
     }
 
     /**

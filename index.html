@@ -1092,44 +1092,227 @@
          */
         function setupVoiceActivation() {
             let voiceActivated = false;
+            let activationAttempts = 0;
+            const maxAttempts = 10;
             
-            const activateVoice = () => {
+            // 检测浏览器类型
+            const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+            const isFirefox = /Firefox/.test(navigator.userAgent);
+            const isSafari = /Safari/.test(navigator.userAgent) && /Apple Computer/.test(navigator.vendor);
+            const isStrictBrowser = isChrome || isFirefox;
+            
+            console.log('🔍 浏览器检测:', { isChrome, isFirefox, isSafari, isStrictBrowser });
+            
+            const activateVoice = async (eventType = 'unknown') => {
                 if (voiceActivated || !voiceReminder) return;
                 
-                console.log('🎯 用户交互检测到，尝试激活语音功能...');
+                activationAttempts++;
+                console.log(`🎯 用户交互检测到 (${eventType})，尝试激活语音功能... (第${activationAttempts}次)`);
                 
                 try {
-                    // 激活语音引擎
-                    voiceReminder.engineActivated = false;
-                    if (voiceReminder.activateSpeechSynthesis()) {
-                        voiceActivated = true;
-                        console.log('✅ 语音功能已通过用户交互激活');
+                    // 针对严格浏览器使用增强激活
+                    if (isStrictBrowser) {
+                        console.log('🔒 检测到严格浏览器，使用增强激活机制...');
                         
-                        // 播放激活成功提示（静音）
-                        const testUtterance = new SpeechSynthesisUtterance('语音功能已激活');
-                        testUtterance.volume = 0.1;
-                        testUtterance.rate = 2;
-                        speechSynthesis.speak(testUtterance);
+                        // 多重激活策略
+                        const activationPromises = [
+                            // 策略1：基础激活
+                            voiceReminder.activateSpeechSynthesis(),
+                            // 策略2：强制激活（如果支持）
+                            voiceReminder.forceActivateForStrictBrowsers ? voiceReminder.forceActivateForStrictBrowsers() : Promise.resolve(true)
+                        ];
                         
-                        // 更新状态指示器
-                        updateVoiceIndicator();
+                        await Promise.all(activationPromises);
                         
-                        // 移除事件监听器
-                        document.removeEventListener('click', activateVoice);
-                        document.removeEventListener('touchstart', activateVoice);
-                        document.removeEventListener('keydown', activateVoice);
+                        // 额外的激活尝试
+                        setTimeout(() => {
+                            try {
+                                const testUtterance = new SpeechSynthesisUtterance('');
+                                testUtterance.volume = 0.01;
+                                testUtterance.rate = 10;
+                                speechSynthesis.speak(testUtterance);
+                            } catch (error) {
+                                console.warn('额外激活尝试失败:', error);
+                            }
+                        }, 100);
+                        
+                    } else {
+                        // Safari等非严格浏览器使用标准激活
+                        voiceReminder.engineActivated = false;
+                        voiceReminder.activateSpeechSynthesis();
                     }
+                    
+                    // 验证激活是否成功
+                    setTimeout(async () => {
+                        const isReady = voiceReminder.checkVoiceEngineReady ? await voiceReminder.checkVoiceEngineReady() : true;
+                        
+                        if (isReady || activationAttempts >= maxAttempts) {
+                            voiceActivated = true;
+                            console.log('✅ 语音功能已通过用户交互激活');
+                            
+                            // 播放激活成功提示（仅适用于非严格浏览器或强制模式）
+                            if (!isStrictBrowser || activationAttempts >= 3) {
+                                try {
+                                    const testUtterance = new SpeechSynthesisUtterance('语音功能已激活');
+                                    testUtterance.volume = 0.1;
+                                    testUtterance.rate = 2;
+                                    speechSynthesis.speak(testUtterance);
+                                } catch (error) {
+                                    console.warn('激活提示播放失败:', error);
+                                }
+                            }
+                            
+                            // 更新状态指示器
+                            updateVoiceIndicator();
+                            
+                            // 移除事件监听器
+                            removeActivationListeners();
+                            
+                        } else if (activationAttempts < maxAttempts) {
+                            console.log('🔄 语音引擎仍未准备就绪，继续监听用户交互...');
+                        } else {
+                            console.warn('⚠️ 已达到最大激活尝试次数，停止尝试');
+                            removeActivationListeners();
+                        }
+                    }, 500);
+                    
                 } catch (error) {
                     console.error('💥 语音激活失败:', error);
+                    
+                    if (activationAttempts < maxAttempts) {
+                        console.log('🔄 激活失败，继续监听用户交互...');
+                    } else {
+                        console.error('❌ 已达到最大激活尝试次数');
+                        removeActivationListeners();
+                    }
                 }
             };
             
-            // 监听用户交互事件
-            document.addEventListener('click', activateVoice, { once: false });
-            document.addEventListener('touchstart', activateVoice, { once: false });
-            document.addEventListener('keydown', activateVoice, { once: false });
+            // 创建包装函数，传递事件类型
+            const clickActivate = (e) => activateVoice('click');
+            const touchActivate = (e) => activateVoice('touch');
+            const scrollActivate = (e) => activateVoice('scroll');
+            const keyActivate = (e) => activateVoice('keydown');
+            const mouseActivate = (e) => activateVoice('mousemove');
             
-            console.log('👆 已设置用户交互激活语音功能');
+            // 移除事件监听器的函数
+            const removeActivationListeners = () => {
+                document.removeEventListener('click', clickActivate);
+                document.removeEventListener('touchstart', touchActivate);
+                document.removeEventListener('touchend', touchActivate);
+                document.removeEventListener('scroll', scrollActivate);
+                document.removeEventListener('keydown', keyActivate);
+                document.removeEventListener('mousemove', mouseActivate);
+                console.log('🚫 激活事件监听器已移除');
+            };
+            
+            // 监听多种用户交互事件（严格浏览器需要更多触发点）
+            if (isStrictBrowser) {
+                // 严格浏览器监听更多事件
+                document.addEventListener('click', clickActivate, { passive: true });
+                document.addEventListener('touchstart', touchActivate, { passive: true });
+                document.addEventListener('touchend', touchActivate, { passive: true });
+                document.addEventListener('scroll', scrollActivate, { passive: true });
+                document.addEventListener('keydown', keyActivate, { passive: true });
+                document.addEventListener('mousemove', mouseActivate, { passive: true, once: true });
+                
+                console.log('👆 已设置增强用户交互激活语音功能（严格模式）');
+                
+                // 额外提示用户
+                setTimeout(() => {
+                    if (!voiceActivated && activationAttempts === 0) {
+                        console.log('💡 提示：请点击页面任意位置以激活语音功能');
+                        
+                        // 显示激活提示
+                        showVoiceActivationTip();
+                    }
+                }, 3000);
+                
+            } else {
+                // 非严格浏览器使用标准监听
+                document.addEventListener('click', clickActivate, { passive: true, once: false });
+                document.addEventListener('touchstart', touchActivate, { passive: true, once: false });
+                document.addEventListener('keydown', keyActivate, { passive: true, once: false });
+                
+                console.log('👆 已设置标准用户交互激活语音功能');
+            }
+            
+            // 自动清理机制
+            setTimeout(() => {
+                if (!voiceActivated) {
+                    console.warn('⏰ 语音激活超时，清理事件监听器');
+                    removeActivationListeners();
+                }
+            }, 30000); // 30秒后清理
+        }
+
+        /**
+         * 显示语音激活提示
+         */
+        function showVoiceActivationTip() {
+            // 检查是否已经显示过提示
+            if (document.querySelector('.voice-activation-tip')) return;
+            
+            const tip = document.createElement('div');
+            tip.className = 'voice-activation-tip';
+            tip.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: white;
+                padding: 20px;
+                border-radius: 15px;
+                font-size: 14px;
+                font-weight: bold;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+                z-index: 3000;
+                animation: tipFadeIn 0.5s ease-out;
+                text-align: center;
+                max-width: 300px;
+                line-height: 1.4;
+            `;
+            
+            tip.innerHTML = `
+                🔊 语音功能需要激活<br>
+                <small style="opacity: 0.9;">请点击页面任意位置</small><br>
+                <button onclick="this.parentElement.remove()" style="
+                    background: rgba(255,255,255,0.2);
+                    border: none;
+                    color: white;
+                    padding: 8px 16px;
+                    border-radius: 8px;
+                    margin-top: 10px;
+                    cursor: pointer;
+                    font-size: 12px;
+                ">知道了</button>
+            `;
+            
+            // 添加动画样式
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes tipFadeIn {
+                    from { 
+                        opacity: 0; 
+                        transform: translate(-50%, -50%) scale(0.8); 
+                    }
+                    to { 
+                        opacity: 1; 
+                        transform: translate(-50%, -50%) scale(1); 
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+            document.body.appendChild(tip);
+            
+            // 5秒后自动消失
+            setTimeout(() => {
+                if (tip && tip.parentElement) {
+                    tip.style.animation = 'tipFadeIn 0.3s ease-out reverse';
+                    setTimeout(() => tip.remove(), 300);
+                }
+            }, 5000);
         }
 
         // 测试语音系统可用性
@@ -1386,10 +1569,29 @@
 
         // 显示语音系统详细状态
         function showVoiceSystemStatus() {
+            // 检测浏览器类型
+            const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+            const isFirefox = /Firefox/.test(navigator.userAgent);
+            const isSafari = /Safari/.test(navigator.userAgent) && /Apple Computer/.test(navigator.vendor);
+            const isStrictBrowser = isChrome || isFirefox;
+            
             let statusInfo = '🔊 语音提醒系统状态报告\n\n';
+            
+            // 浏览器信息
+            statusInfo += `🌐 浏览器检测:\n`;
+            if (isChrome) {
+                statusInfo += `✅ Chrome浏览器 (严格模式)\n`;
+            } else if (isFirefox) {
+                statusInfo += `✅ Firefox浏览器 (严格模式)\n`;
+            } else if (isSafari) {
+                statusInfo += `✅ Safari浏览器 (兼容模式)\n`;
+            } else {
+                statusInfo += `⚠️ 其他浏览器\n`;
+            }
             
             // 基本功能检查
             const speechSupported = 'speechSynthesis' in window;
+            statusInfo += `\n🔧 系统功能:\n`;
             statusInfo += `浏览器语音支持: ${speechSupported ? '✅ 支持' : '❌ 不支持'}\n`;
             statusInfo += `语音对象状态: ${voiceReminder ? '✅ 已创建' : '❌ 未创建'}\n`;
             
@@ -1416,6 +1618,7 @@
             if (speechSupported) {
                 try {
                     const voices = speechSynthesis.getVoices();
+                    statusInfo += `\n🎤 语音详情:\n`;
                     statusInfo += `可用语音数量: ${voices.length}\n`;
                     statusInfo += `语音合成状态: ${speechSynthesis.speaking ? '🔊 播放中' : '🔇 空闲'}\n`;
                     statusInfo += `语音队列状态: ${speechSynthesis.pending ? '📋 有队列' : '📋 无队列'}\n`;
@@ -1425,38 +1628,202 @@
                 }
             }
             
-            statusInfo += '\n🔧 故障排除指南：\n';
+            // 针对不同浏览器的故障排除指南
+            statusInfo += '\n🔧 针对性解决方案：\n';
+            
+            if (isChrome) {
+                statusInfo += '📱 Chrome浏览器专用指南：\n';
+                statusInfo += '• 确保已点击页面多次（Chrome需要足够的用户交互）\n';
+                statusInfo += '• 检查地址栏左侧的声音图标，确保未静音\n';
+                statusInfo += '• 访问 chrome://settings/content/sound 检查声音设置\n';
+                statusInfo += '• 尝试播放一段音乐或视频激活音频上下文\n';
+                statusInfo += '• 如果是手机，检查是否开启了静音模式\n\n';
+            } else if (isFirefox) {
+                statusInfo += '🦊 Firefox浏览器专用指南：\n';
+                statusInfo += '• 确保已与页面进行交互（点击、滚动等）\n';
+                statusInfo += '• 检查地址栏的音频播放权限图标\n';
+                statusInfo += '• 访问 about:preferences#privacy 检查音频权限\n';
+                statusInfo += '• 尝试刷新页面并立即点击按钮\n';
+                statusInfo += '• 确保浏览器音量未被静音\n\n';
+            } else if (isSafari) {
+                statusInfo += '🍎 Safari浏览器（推荐）：\n';
+                statusInfo += '• Safari对语音支持最好，通常无需特殊设置\n';
+                statusInfo += '• 如有问题，检查系统偏好设置中的隐私权限\n\n';
+            } else {
+                statusInfo += '• 建议更换为Chrome、Firefox或Safari浏览器\n';
+                statusInfo += '• 确保浏览器版本较新\n\n';
+            }
+            
+            statusInfo += '💡 通用解决方案：\n';
             if (!speechSupported) {
-                statusInfo += '• 更换支持语音的浏览器（Chrome推荐）\n';
+                statusInfo += '• 更换支持语音的浏览器（推荐Chrome或Safari）\n';
             } else if (!voiceReminder || !voiceReminder.engineActivated) {
-                statusInfo += '• 点击任意按钮激活语音引擎\n';
+                statusInfo += '• 多次点击页面上的按钮和链接\n';
                 statusInfo += '• 确保手机没有静音\n';
                 statusInfo += '• 检查浏览器音频权限\n';
+                statusInfo += '• 尝试播放其他音频内容\n';
             } else {
                 statusInfo += '• 语音功能正常，可以使用测试按钮验证\n';
             }
             
-            statusInfo += '\n💡 缓存问题解决方案：\n';
-            statusInfo += '• 如果功能不完整，可能是缓存问题\n';
-            statusInfo += '• 建议清除缓存并重新加载\n';
-            statusInfo += '• 使用Chrome浏览器获得最佳体验\n\n';
-            statusInfo += '🎯 操作选项：\n';
-            statusInfo += '• 确定：播放测试语音\n';
-            statusInfo += '• 取消：检查缓存更新\n';
-            statusInfo += '• 点击右上角⚙️：清除缓存重新加载';
+            statusInfo += '\n🎯 立即尝试：\n';
+            if (isStrictBrowser) {
+                statusInfo += '• 确定：强制激活语音（多次尝试）\n';
+                statusInfo += '• 取消：查看缓存和更新选项\n';
+            } else {
+                statusInfo += '• 确定：播放测试语音\n';
+                statusInfo += '• 取消：检查缓存更新\n';
+            }
             
             const userChoice = confirm(statusInfo);
             
             if (userChoice) {
-                // 用户点击确定：播放测试语音
-                if (voiceReminder && voiceReminder.speakForced) {
-                    voiceReminder.speakForced('语音系统测试成功！功能正常！');
+                // 用户点击确定
+                if (isStrictBrowser) {
+                    // 对严格浏览器进行强制激活
+                    forceActivateVoiceForStrictBrowser();
                 } else {
-                    forceVoiceTest();
+                    // 其他浏览器播放测试语音
+                    if (voiceReminder && voiceReminder.testVoice) {
+                        voiceReminder.testVoice();
+                    } else {
+                        forceVoiceTest();
+                    }
                 }
             } else {
                 // 用户点击取消：显示缓存解决选项
                 showCacheFixOptions();
+            }
+        }
+
+        /**
+         * 针对严格浏览器的强制激活
+         */
+        async function forceActivateVoiceForStrictBrowser() {
+            const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+            const isFirefox = /Firefox/.test(navigator.userAgent);
+            const browserName = isChrome ? 'Chrome' : isFirefox ? 'Firefox' : '浏览器';
+            
+            console.log(`💪 开始强制激活${browserName}语音功能...`);
+            
+            try {
+                // 显示进度提示
+                const progressTip = document.createElement('div');
+                progressTip.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    color: white;
+                    padding: 15px 20px;
+                    border-radius: 10px;
+                    font-size: 12px;
+                    z-index: 3000;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                `;
+                progressTip.innerHTML = `🔄 正在激活${browserName}语音功能，请稍候...`;
+                document.body.appendChild(progressTip);
+                
+                // 执行多重激活策略
+                const strategies = [
+                    // 策略1：基础激活
+                    () => {
+                        if (voiceReminder) {
+                            voiceReminder.engineActivated = false;
+                            voiceReminder.activateSpeechSynthesis();
+                        }
+                    },
+                    // 策略2：强制激活
+                    () => {
+                        if (voiceReminder && voiceReminder.forceActivateForStrictBrowsers) {
+                            return voiceReminder.forceActivateForStrictBrowsers();
+                        }
+                    },
+                    // 策略3：直接语音合成激活
+                    () => {
+                        const utterance = new SpeechSynthesisUtterance('');
+                        utterance.volume = 0.01;
+                        utterance.rate = 10;
+                        speechSynthesis.speak(utterance);
+                    },
+                    // 策略4：多次尝试
+                    () => {
+                        for (let i = 0; i < 3; i++) {
+                            setTimeout(() => {
+                                const u = new SpeechSynthesisUtterance(' ');
+                                u.volume = 0.01;
+                                speechSynthesis.speak(u);
+                            }, i * 100);
+                        }
+                    }
+                ];
+                
+                // 执行所有策略
+                for (let i = 0; i < strategies.length; i++) {
+                    progressTip.innerHTML = `🔄 正在执行激活策略 ${i + 1}/${strategies.length}...`;
+                    await new Promise(resolve => {
+                        setTimeout(() => {
+                            try {
+                                strategies[i]();
+                            } catch (error) {
+                                console.warn(`策略 ${i + 1} 失败:`, error);
+                            }
+                            resolve();
+                        }, i * 200);
+                    });
+                }
+                
+                // 等待激活完成
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // 测试激活结果
+                progressTip.innerHTML = `🧪 测试${browserName}语音功能...`;
+                
+                let testSuccessful = false;
+                try {
+                    if (voiceReminder && voiceReminder.testVoice) {
+                        testSuccessful = await voiceReminder.testVoice();
+                    } else {
+                        // fallback测试
+                        await new Promise((resolve, reject) => {
+                            const testUtterance = new SpeechSynthesisUtterance('语音激活测试');
+                            testUtterance.volume = 0.7;
+                            testUtterance.onstart = () => {
+                                testSuccessful = true;
+                                resolve(true);
+                            };
+                            testUtterance.onerror = reject;
+                            speechSynthesis.speak(testUtterance);
+                            
+                            setTimeout(() => {
+                                if (!testSuccessful) reject(new Error('测试超时'));
+                            }, 3000);
+                        });
+                    }
+                } catch (error) {
+                    console.error('语音测试失败:', error);
+                }
+                
+                // 移除进度提示
+                progressTip.remove();
+                
+                // 显示结果
+                if (testSuccessful) {
+                    alert(`🎉 ${browserName}语音功能激活成功！\n\n您刚才应该听到了测试语音。\n如果没有听到，请检查设备音量设置。`);
+                    updateVoiceIndicator();
+                } else {
+                    const advancedHelp = `❌ ${browserName}语音激活失败\n\n高级解决方案：\n\n1. 📱 ${browserName}特定设置：\n`;
+                    if (isChrome) {
+                        alert(advancedHelp + `   • 在地址栏输入：chrome://flags/#autoplay-policy\n   • 将策略设置为"No user gesture is required"\n   • 重启浏览器后重试\n\n2. 🔊 音频激活：\n   • 先播放一段音乐或视频\n   • 然后立即测试语音功能\n\n3. 🔄 重置方案：\n   • 刷新页面\n   • 立即多次点击按钮\n   • 建议使用Safari浏览器`);
+                    } else if (isFirefox) {
+                        alert(advancedHelp + `   • 在地址栏输入：about:config\n   • 搜索：media.autoplay.default\n   • 设置值为：0\n   • 重启浏览器后重试\n\n2. 🔊 权限检查：\n   • 点击地址栏的盾牌图标\n   • 允许音频播放权限\n\n3. 🔄 重置方案：\n   • 刷新页面\n   • 立即多次点击按钮\n   • 建议使用Safari浏览器`);
+                    }
+                }
+                
+            } catch (error) {
+                console.error('强制激活过程失败:', error);
+                alert(`💥 ${browserName}语音强制激活失败\n\n错误：${error.message}\n\n建议：\n1. 刷新页面重试\n2. 更换为Safari浏览器\n3. 检查设备音频设置`);
             }
         }
 
