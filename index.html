@@ -1178,9 +1178,20 @@
                 updateTotalPoints();
                 updateStudyDisplay();
                 
-                // 播放完成提醒
-                if (task.studyCompleted && voiceReminder) {
-                    voiceReminder.playTaskCompleteReminder(task.name);
+                // 播放完成提醒 - 添加调试信息
+                if (task.studyCompleted) {
+                    console.log('尝试播放学习完成语音提醒:', task.name);
+                    if (voiceReminder) {
+                        console.log('语音提醒对象存在，检查设置:', voiceReminder.isEnabled, voiceReminder.reminderTypes.taskComplete);
+                        if (voiceReminder.isEnabled && voiceReminder.reminderTypes.taskComplete) {
+                            console.log('开始播放学习完成语音');
+                            voiceReminder.playTaskCompleteReminder(task.name);
+                        } else {
+                            console.log('语音提醒被禁用或任务完成提醒被关闭');
+                        }
+                    } else {
+                        console.log('语音提醒对象不存在');
+                    }
                 }
             }
         }
@@ -1198,9 +1209,20 @@
                 updateTotalPoints();
                 updateStudyDisplay();
                 
-                // 播放掌握提醒
-                if (task.masteredCompleted && voiceReminder) {
-                    voiceReminder.playTaskMasterReminder(task.name, task.earnedPoints);
+                // 播放掌握提醒 - 添加调试信息
+                if (task.masteredCompleted) {
+                    console.log('尝试播放掌握完成语音提醒:', task.name, '积分:', task.earnedPoints);
+                    if (voiceReminder) {
+                        console.log('语音提醒对象存在，检查设置:', voiceReminder.isEnabled, voiceReminder.reminderTypes.taskMaster);
+                        if (voiceReminder.isEnabled && voiceReminder.reminderTypes.taskMaster) {
+                            console.log('开始播放掌握完成语音');
+                            voiceReminder.playTaskMasterReminder(task.name, task.earnedPoints);
+                        } else {
+                            console.log('语音提醒被禁用或任务掌握提醒被关闭');
+                        }
+                    } else {
+                        console.log('语音提醒对象不存在');
+                    }
                 }
             }
         }
@@ -1249,13 +1271,24 @@
                     saveData();
                     updateStudyDisplay();
                     
-                    // 设置语音提醒
-                    if (timeSlot && voiceReminder) {
-                        voiceReminder.setTaskReminder(task, plan.name);
-                        voiceReminder.playSettingConfirmReminder('timeSlot', {
-                            taskName: task.name,
-                            timeSlot: timeSlot
-                        });
+                    // 设置语音提醒 - 添加调试信息
+                    if (timeSlot) {
+                        console.log('尝试设置时间段语音提醒:', timeSlot);
+                        if (voiceReminder) {
+                            console.log('语音提醒对象存在，设置任务提醒');
+                            voiceReminder.setTaskReminder(task, plan.name);
+                            if (voiceReminder.isEnabled && voiceReminder.reminderTypes.settingConfirm) {
+                                console.log('播放设置确认语音');
+                                voiceReminder.playSettingConfirmReminder('timeSlot', {
+                                    taskName: task.name,
+                                    timeSlot: timeSlot
+                                });
+                            } else {
+                                console.log('设置确认语音被禁用');
+                            }
+                        } else {
+                            console.log('语音提醒对象不存在');
+                        }
                     }
                 }
             }
@@ -1277,9 +1310,18 @@
                     updateTotalPoints();
                     updateStudyDisplay();
                     
-                    // 播放设置确认提醒
+                    // 播放设置确认提醒 - 添加调试信息
+                    console.log('尝试播放积分设置语音提醒:', points);
                     if (voiceReminder) {
-                        voiceReminder.playSettingConfirmReminder('points', points);
+                        console.log('语音提醒对象存在，检查设置:', voiceReminder.isEnabled, voiceReminder.reminderTypes.settingConfirm);
+                        if (voiceReminder.isEnabled && voiceReminder.reminderTypes.settingConfirm) {
+                            console.log('播放积分设置确认语音');
+                            voiceReminder.playSettingConfirmReminder('points', points);
+                        } else {
+                            console.log('设置确认语音被禁用');
+                        }
+                    } else {
+                        console.log('语音提醒对象不存在');
                     }
                 }
             }
@@ -1369,9 +1411,18 @@
             saveData();
             updateStudyDisplay();
             
-            // 播放计划添加提醒
+            // 播放计划添加提醒 - 添加调试信息
+            console.log('尝试播放计划添加语音提醒:', planName, '任务数:', tasks.length);
             if (voiceReminder) {
-                voiceReminder.playPlanAddedReminder(planName, tasks.length);
+                console.log('语音提醒对象存在，检查设置:', voiceReminder.isEnabled, voiceReminder.reminderTypes.planAdded);
+                if (voiceReminder.isEnabled && voiceReminder.reminderTypes.planAdded) {
+                    console.log('播放计划添加语音');
+                    voiceReminder.playPlanAddedReminder(planName, tasks.length);
+                } else {
+                    console.log('计划添加语音被禁用');
+                }
+            } else {
+                console.log('语音提醒对象不存在');
             }
         }
 
@@ -1479,9 +1530,14 @@
             saveData();
             updateStudyDisplay();
             
-            // 播放成功提醒
+            // 播放成功提醒 - 添加调试信息
+            console.log('尝试播放复制计划成功语音提醒');
             if (voiceReminder) {
-                voiceReminder.speak('已成功复制昨天的学习计划！今天继续加油！', 'planAdded');
+                console.log('语音提醒对象存在，强制播放语音');
+                // 直接调用speak方法，不检查类型限制
+                voiceReminder.speak('已成功复制昨天的学习计划！今天继续加油！', null, 3);
+            } else {
+                console.log('语音提醒对象不存在');
             }
         }
 
@@ -1567,9 +1623,14 @@
             saveData();
             updateStudyDisplay();
             
-            // 播放成功提醒
+            // 播放成功提醒 - 添加调试信息
+            console.log('尝试播放模板加载成功语音提醒:', selectedTemplate.name);
             if (voiceReminder) {
-                voiceReminder.speak(`已成功加载${selectedTemplate.name}！开始今天的学习吧！`, 'planAdded');
+                console.log('语音提醒对象存在，强制播放语音');
+                // 直接调用speak方法，不检查类型限制
+                voiceReminder.speak(`已成功加载${selectedTemplate.name}！开始今天的学习吧！`, null, 3);
+            } else {
+                console.log('语音提醒对象不存在');
             }
         }
 
@@ -1637,9 +1698,14 @@
             saveData();
             updateStudyDisplay();
             
-            // 播放成功提醒
+            // 播放成功提醒 - 添加调试信息
+            console.log('尝试播放默认计划创建成功语音提醒');
             if (voiceReminder) {
-                voiceReminder.speak('默认学习计划已创建！开始你的学习之旅吧！', 'planAdded');
+                console.log('语音提醒对象存在，强制播放语音');
+                // 直接调用speak方法，不检查类型限制
+                voiceReminder.speak('默认学习计划已创建！开始你的学习之旅吧！', null, 3);
+            } else {
+                console.log('语音提醒对象不存在');
             }
         }
 
