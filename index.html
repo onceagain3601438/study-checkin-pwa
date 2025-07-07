@@ -169,6 +169,7 @@
             transition: all 0.3s ease;
             backdrop-filter: blur(10px);
             z-index: 10;
+            user-select: none;
         }
         
         .refresh-btn:hover {
@@ -186,9 +187,26 @@
             animation: spin 1s linear infinite;
         }
         
+        .refresh-btn.testing {
+            background: rgba(255, 193, 7, 0.8);
+            border-color: rgba(255, 193, 7, 1);
+            animation: pulse-test 0.5s ease-in-out infinite alternate;
+        }
+        
         @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
+        }
+        
+        @keyframes pulse-test {
+            from { 
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7);
+            }
+            to { 
+                transform: scale(1.1);
+                box-shadow: 0 0 0 10px rgba(255, 193, 7, 0);
+            }
         }
         
         /* 刷新成功提示 */
@@ -763,7 +781,10 @@
     <div class="page active" id="calendarPage">
         <div class="header">
             <!-- 页面刷新按钮 -->
-            <div class="refresh-btn" onclick="refreshPage('calendar')" title="刷新页面">
+            <div class="refresh-btn" 
+                 onclick="refreshPage('calendar')" 
+                 oncontextmenu="return handleRefreshTest(event, 'calendar')"
+                 title="点击刷新页面，右键或长按进行功能测试">
                 🔄
             </div>
             <div class="header-content">
@@ -827,7 +848,10 @@
     <div class="page" id="studyPage">
         <div class="header">
             <!-- 页面刷新按钮 -->
-            <div class="refresh-btn" onclick="refreshPage('study')" title="刷新页面">
+            <div class="refresh-btn" 
+                 onclick="refreshPage('study')" 
+                 oncontextmenu="return handleRefreshTest(event, 'study')"
+                 title="点击刷新页面，右键或长按进行功能测试">
                 🔄
             </div>
             <div class="header-content">
@@ -877,7 +901,10 @@
     <div class="page" id="pointsPage">
         <div class="header">
             <!-- 页面刷新按钮 -->
-            <div class="refresh-btn" onclick="refreshPage('points')" title="刷新页面">
+            <div class="refresh-btn" 
+                 onclick="refreshPage('points')" 
+                 oncontextmenu="return handleRefreshTest(event, 'points')"
+                 title="点击刷新页面，右键或长按进行功能测试">
                 🔄
             </div>
             <div class="header-content">
@@ -919,7 +946,10 @@
     <div class="page" id="templatePage">
         <div class="header">
             <!-- 页面刷新按钮 -->
-            <div class="refresh-btn" onclick="refreshPage('template')" title="刷新页面">
+            <div class="refresh-btn" 
+                 onclick="refreshPage('template')" 
+                 oncontextmenu="return handleRefreshTest(event, 'template')"
+                 title="点击刷新页面，右键或长按进行功能测试">
                 🔄
             </div>
             <div class="header-content">
@@ -2151,66 +2181,129 @@
          * @param {string} pageType - 页面类型 ('calendar', 'study', 'points', 'template')
          */
         function refreshPage(pageType) {
-            console.log(`开始刷新${pageType}页面...`);
+            console.log(`🔄 开始刷新${pageType}页面...`);
             
             const refreshBtn = document.querySelector(`#${pageType}Page .refresh-btn`);
             
             // 添加旋转动画
             if (refreshBtn) {
                 refreshBtn.classList.add('spinning');
+                console.log('✅ 刷新按钮动画已启动');
+            } else {
+                console.warn('⚠️ 未找到刷新按钮');
             }
             
             // 模拟刷新延迟，让用户看到刷新动画
             setTimeout(() => {
                 try {
+                    console.log('📦 开始重新加载数据...');
+                    
                     // 重新加载数据
-                    loadData();
-                    updateTotalPoints();
+                    if (typeof loadData === 'function') {
+                        loadData();
+                        console.log('✅ loadData() 执行成功');
+                    } else {
+                        console.error('❌ loadData 函数不存在');
+                        throw new Error('loadData 函数不存在');
+                    }
+                    
+                    if (typeof updateTotalPoints === 'function') {
+                        updateTotalPoints();
+                        console.log('✅ updateTotalPoints() 执行成功');
+                    } else {
+                        console.error('❌ updateTotalPoints 函数不存在');
+                        throw new Error('updateTotalPoints 函数不存在');
+                    }
                     
                     // 根据页面类型更新相应显示
+                    console.log(`🎯 开始更新 ${pageType} 页面显示...`);
                     switch (pageType) {
                         case 'calendar':
-                            // 重置日历显示
-                            currentCalendarDate = new Date();
-                            updateCalendarDisplay();
-                            console.log('日历页面刷新完成');
+                            try {
+                                // 重置日历显示
+                                currentCalendarDate = new Date();
+                                if (typeof updateCalendarDisplay === 'function') {
+                                    updateCalendarDisplay();
+                                    console.log('✅ 日历页面刷新完成');
+                                } else {
+                                    throw new Error('updateCalendarDisplay 函数不存在');
+                                }
+                            } catch (error) {
+                                console.error('❌ 日历页面刷新失败:', error);
+                                throw error;
+                            }
                             break;
                             
                         case 'study':
-                            // 重置学习计划显示
-                            updateStudyDisplay();
-                            
-                            // 重新设置语音提醒
-                            if (voiceReminder) {
-                                console.log('重新设置语音提醒...');
-                                voiceReminder.updateAllTaskReminders(studyData, currentStudyDate);
-                                window.studyData = studyData;
-                                window.currentStudyDate = currentStudyDate;
-                                updateVoiceIndicator();
+                            try {
+                                // 重置学习计划显示
+                                if (typeof updateStudyDisplay === 'function') {
+                                    updateStudyDisplay();
+                                    console.log('✅ 学习计划显示更新完成');
+                                } else {
+                                    throw new Error('updateStudyDisplay 函数不存在');
+                                }
+                                
+                                // 重新设置语音提醒
+                                if (voiceReminder && typeof voiceReminder.updateAllTaskReminders === 'function') {
+                                    console.log('🔊 重新设置语音提醒...');
+                                    voiceReminder.updateAllTaskReminders(studyData, currentStudyDate);
+                                    window.studyData = studyData;
+                                    window.currentStudyDate = currentStudyDate;
+                                    
+                                    if (typeof updateVoiceIndicator === 'function') {
+                                        updateVoiceIndicator();
+                                        console.log('✅ 语音指示器更新完成');
+                                    }
+                                } else {
+                                    console.log('⚠️ 语音提醒系统未就绪，跳过语音设置');
+                                }
+                                console.log('✅ 学习计划页面刷新完成');
+                            } catch (error) {
+                                console.error('❌ 学习计划页面刷新失败:', error);
+                                throw error;
                             }
-                            console.log('学习计划页面刷新完成');
                             break;
                             
                         case 'points':
-                            // 重新计算和显示积分
-                            updatePointsDisplay();
-                            console.log('积分页面刷新完成');
+                            try {
+                                // 重新计算和显示积分
+                                if (typeof updatePointsDisplay === 'function') {
+                                    updatePointsDisplay();
+                                    console.log('✅ 积分页面刷新完成');
+                                } else {
+                                    throw new Error('updatePointsDisplay 函数不存在');
+                                }
+                            } catch (error) {
+                                console.error('❌ 积分页面刷新失败:', error);
+                                throw error;
+                            }
                             break;
                             
                         case 'template':
-                            // 模板页面暂时无需特殊处理
-                            console.log('模板页面刷新完成');
+                            try {
+                                // 模板页面暂时无需特殊处理
+                                console.log('✅ 模板页面刷新完成');
+                            } catch (error) {
+                                console.error('❌ 模板页面刷新失败:', error);
+                                throw error;
+                            }
                             break;
                             
                         default:
-                            console.log('未知页面类型:', pageType);
+                            console.warn('⚠️ 未知页面类型:', pageType);
                     }
                     
                     // 显示刷新成功提示
-                    showRefreshSuccess();
+                    console.log('🎉 显示刷新成功提示...');
+                    if (typeof showRefreshSuccess === 'function') {
+                        showRefreshSuccess();
+                    } else {
+                        console.error('❌ showRefreshSuccess 函数不存在');
+                    }
                     
                     // 播放刷新成功语音提醒
-                    if (voiceReminder && voiceReminder.isEnabled) {
+                    if (voiceReminder && voiceReminder.isEnabled && typeof voiceReminder.speak === 'function') {
                         const pageNames = {
                             'calendar': '日历',
                             'study': '学习计划',
@@ -2219,15 +2312,27 @@
                         };
                         const pageName = pageNames[pageType] || '页面';
                         voiceReminder.speak(`${pageName}页面刷新完成！`, null, 1);
+                        console.log('🔊 语音提醒播放完成');
                     }
                     
+                    console.log(`🎊 ${pageType}页面刷新全部完成！`);
+                    
                 } catch (error) {
-                    console.error('页面刷新失败:', error);
-                    alert('刷新失败，请重试');
+                    console.error('💥 页面刷新过程中发生错误:', {
+                        pageType: pageType,
+                        error: error.message,
+                        stack: error.stack
+                    });
+                    
+                    // 显示详细错误信息
+                    const errorMsg = `刷新失败！\n\n错误详情：\n${error.message}\n\n请查看控制台获取更多信息`;
+                    alert(errorMsg);
+                    
                 } finally {
                     // 移除旋转动画
                     if (refreshBtn) {
                         refreshBtn.classList.remove('spinning');
+                        console.log('🔄 刷新按钮动画已停止');
                     }
                 }
                 
@@ -2308,12 +2413,23 @@
             localStorage.setItem('lastDataUpdate', Date.now().toString());
         }
 
-        // 在保存数据时更新时间戳
+        // 重新定义saveData函数，添加时间戳更新功能
         const originalSaveData = saveData;
-        saveData = function() {
-            originalSaveData();
-            updateDataTimestamp();
-        };
+        if (typeof originalSaveData === 'function') {
+            saveData = function() {
+                try {
+                    originalSaveData();
+                    updateDataTimestamp();
+                    console.log('📝 数据保存完成，时间戳已更新');
+                } catch (error) {
+                    console.error('💥 数据保存失败:', error);
+                    throw error;
+                }
+            };
+            console.log('✅ saveData函数重定义完成');
+        } else {
+            console.error('❌ 原始saveData函数不存在，无法重定义');
+        }
 
         // 页面加载完成后启动智能刷新检查
         setTimeout(() => {
@@ -2322,6 +2438,117 @@
 
         // 初始化应用
         document.addEventListener('DOMContentLoaded', init);
+
+        /**
+         * 测试刷新功能
+         * 这个函数可以帮助用户诊断刷新功能是否正常工作
+         */
+        function testRefreshFunction() {
+            console.log('🧪 开始测试刷新功能...');
+            
+            // 检查所有必需的函数是否存在
+            const requiredFunctions = [
+                'loadData',
+                'updateTotalPoints', 
+                'updateCalendarDisplay',
+                'updateStudyDisplay',
+                'updatePointsDisplay',
+                'showRefreshSuccess'
+            ];
+            
+            const missingFunctions = [];
+            const existingFunctions = [];
+            
+            requiredFunctions.forEach(funcName => {
+                if (typeof window[funcName] === 'function') {
+                    existingFunctions.push(funcName);
+                    console.log(`✅ ${funcName} - 存在`);
+                } else {
+                    missingFunctions.push(funcName);
+                    console.error(`❌ ${funcName} - 缺失`);
+                }
+            });
+            
+            // 检查全局变量
+            const globalVars = ['studyData', 'currentStudyDate', 'currentCalendarDate', 'totalPoints'];
+            globalVars.forEach(varName => {
+                if (typeof window[varName] !== 'undefined') {
+                    console.log(`✅ 全局变量 ${varName} - 存在:`, window[varName]);
+                } else {
+                    console.warn(`⚠️ 全局变量 ${varName} - 未定义`);
+                }
+            });
+            
+            // 检查语音提醒系统
+            if (typeof voiceReminder !== 'undefined' && voiceReminder !== null) {
+                console.log('✅ 语音提醒系统 - 已初始化');
+                if (typeof voiceReminder.updateAllTaskReminders === 'function') {
+                    console.log('✅ 语音提醒更新函数 - 存在');
+                } else {
+                    console.warn('⚠️ 语音提醒更新函数 - 缺失');
+                }
+            } else {
+                console.warn('⚠️ 语音提醒系统 - 未初始化');
+            }
+            
+            // 生成测试报告
+            const report = {
+                functionsTotal: requiredFunctions.length,
+                functionsExisting: existingFunctions.length,
+                functionsMissing: missingFunctions.length,
+                missingFunctionsList: missingFunctions,
+                voiceReminderStatus: voiceReminder ? '已初始化' : '未初始化'
+            };
+            
+            console.log('📊 刷新功能测试报告:', report);
+            
+            if (missingFunctions.length === 0) {
+                console.log('🎉 所有必需函数都存在，刷新功能应该可以正常工作！');
+                alert('✅ 刷新功能测试通过！\n\n所有必需的函数都存在，刷新功能应该可以正常工作。\n\n如果仍然遇到问题，请查看浏览器控制台的详细日志。');
+                return true;
+            } else {
+                console.error('💥 发现缺失的函数，刷新功能可能无法正常工作！');
+                alert(`❌ 刷新功能测试失败！\n\n缺失的函数：${missingFunctions.join(', ')}\n\n请刷新页面或联系开发者。`);
+                return false;
+            }
+        }
+
+        // 在控制台暴露测试函数
+        window.testRefreshFunction = testRefreshFunction;
+
+        /**
+         * 处理刷新按钮的测试功能
+         * @param {Event} event - 事件对象
+         * @param {string} pageType - 页面类型
+         */
+        function handleRefreshTest(event, pageType) {
+            event.preventDefault(); // 阻止右键菜单
+            
+            const btn = event.target;
+            btn.classList.add('testing');
+            
+            console.log(`🧪 开始测试 ${pageType} 页面的刷新功能...`);
+            
+            // 运行测试
+            const testResult = testRefreshFunction();
+            
+            // 移除测试样式
+            setTimeout(() => {
+                btn.classList.remove('testing');
+            }, 2000);
+            
+            // 如果测试通过，询问是否立即刷新
+            if (testResult) {
+                setTimeout(() => {
+                    const shouldRefresh = confirm(`✅ ${pageType} 页面刷新功能测试通过！\n\n是否立即刷新此页面？`);
+                    if (shouldRefresh) {
+                        refreshPage(pageType);
+                    }
+                }, 500);
+            }
+            
+            return false; // 阻止默认行为
+        }
     </script>
 </body>
 </html> 
