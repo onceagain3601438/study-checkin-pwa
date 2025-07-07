@@ -310,7 +310,7 @@
         
         .table-header {
             display: grid;
-            grid-template-columns: 1fr 1.5fr 0.5fr 0.5fr 0.8fr;
+            grid-template-columns: 1fr 1.5fr 0.5fr 0.5fr 0.8fr 0.5fr;
             gap: 5px;
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
@@ -323,7 +323,7 @@
         
         .table-row {
             display: grid;
-            grid-template-columns: 1fr 1.5fr 0.5fr 0.5fr 0.8fr;
+            grid-template-columns: 1fr 1.5fr 0.5fr 0.5fr 0.8fr 0.5fr;
             gap: 5px;
             align-items: center;
             padding: 8px 10px;
@@ -397,6 +397,30 @@
         
         .task-text:hover {
             background: #f8f9ff;
+        }
+        
+        .delete-task-btn {
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: rgba(255, 107, 107, 0.1);
+            color: #ff6b6b;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+            margin: 0 auto;
+        }
+        
+        .delete-task-btn:hover {
+            background: rgba(255, 107, 107, 0.2);
+            transform: scale(1.1);
+        }
+        
+        .delete-task-btn:active {
+            transform: scale(0.95);
         }
         
         .checkbox {
@@ -569,11 +593,28 @@
         @media (max-width: 480px) {
             .table-header, .table-row {
                 font-size: 10px;
+                grid-template-columns: 0.8fr 1.2fr 0.4fr 0.4fr 0.6fr 0.4fr;
             }
             
             .time-slot-btn, .points-btn {
                 font-size: 9px;
-                min-width: 40px;
+                min-width: 35px;
+                padding: 2px 4px;
+            }
+            
+            .delete-task-btn {
+                width: 20px;
+                height: 20px;
+                font-size: 10px;
+            }
+            
+            .checkbox {
+                width: 15px;
+                height: 15px;
+            }
+            
+            .task-text {
+                font-size: 10px;
             }
         }
         
@@ -1320,6 +1361,7 @@
                                 <div>学习</div>
                                 <div>掌握</div>
                                 <div>积分</div>
+                                <div>操作</div>
                             </div>
                             
                             ${plan.tasks.map(task => `
@@ -1349,6 +1391,11 @@
                                         <div class="points-btn ${task.points > 0 ? 'has-points' : 'no-points'}" 
                                              onclick="setPoints(${plan.id}, ${task.id})">
                                             ${task.points > 0 ? `${task.earnedPoints}/${task.points}` : '设置'}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="delete-task-btn" onclick="deleteTask(${plan.id}, ${task.id})" title="删除任务">
+                                            🗑️
                                         </div>
                                     </div>
                                 </div>
@@ -1566,6 +1613,82 @@
                     saveData();
                     updateStudyDisplay();
                 }
+            }
+        }
+
+        /**
+         * 删除单个任务
+         * @param {number} planId - 计划ID
+         * @param {number} taskId - 任务ID
+         */
+        function deleteTask(planId, taskId) {
+            const dateKey = getDateKey(currentStudyDate);
+            const plan = studyData[dateKey]?.find(p => p.id === planId);
+            const task = plan?.tasks.find(t => t.id === taskId);
+            
+            if (!plan || !task) {
+                console.error('未找到要删除的任务');
+                return;
+            }
+            
+            // 确认删除
+            const confirmMessage = `确定要删除任务"${task.name}"吗？\n\n⚠️ 此操作无法撤销！`;
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            console.log(`准备删除任务: ${task.name} (ID: ${taskId})`);
+            
+            // 如果任务设置了语音提醒，先清除提醒
+            if (voiceReminder && task.timeSlot) {
+                const reminderId = `${task.id}_${plan.name}`;
+                voiceReminder.clearTaskReminder(reminderId);
+                console.log('已清除任务的语音提醒');
+            }
+            
+            // 从任务数组中删除任务
+            const taskIndex = plan.tasks.findIndex(t => t.id === taskId);
+            if (taskIndex !== -1) {
+                plan.tasks.splice(taskIndex, 1);
+                console.log(`任务已从数组中删除，剩余任务数: ${plan.tasks.length}`);
+            }
+            
+            // 如果计划中没有任务了，询问是否删除整个计划
+            if (plan.tasks.length === 0) {
+                const deleteEmptyPlan = confirm(`计划"${plan.name}"中已经没有任务了，是否删除整个计划？`);
+                if (deleteEmptyPlan) {
+                    deletePlan(planId);
+                    return; // 直接返回，因为整个计划都被删除了
+                } else {
+                    // 如果不删除计划，添加一个提示任务
+                    const placeholderTask = {
+                        id: Date.now(),
+                        name: '点击添加新任务',
+                        timeSlot: '',
+                        studyCompleted: false,
+                        masteredCompleted: false,
+                        points: 0,
+                        earnedPoints: 0
+                    };
+                    plan.tasks.push(placeholderTask);
+                }
+            }
+            
+            // 更新计划统计信息
+            plan.totalTasks = plan.tasks.length;
+            plan.totalPoints = plan.tasks.reduce((sum, task) => sum + task.points, 0);
+            updatePlanStats(plan);
+            
+            // 保存数据并更新显示
+            saveData();
+            updateTotalPoints();
+            updateStudyDisplay();
+            
+            console.log('任务删除完成，界面已更新');
+            
+            // 播放删除确认语音
+            if (voiceReminder && voiceReminder.isEnabled) {
+                voiceReminder.speak(`任务"${task.name}"已删除`, null, 1);
             }
         }
 
