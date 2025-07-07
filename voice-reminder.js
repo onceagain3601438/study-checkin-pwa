@@ -259,9 +259,16 @@ class VoiceReminder {
         // 设置提醒时间为学习开始时间
         reminderTime.setHours(timeInfo.start.hour, timeInfo.start.minute, 0, 0);
         
+        console.log('计算提醒时间:', {
+            now: now.toLocaleString(),
+            reminderTime: reminderTime.toLocaleString(),
+            isPast: reminderTime <= now
+        });
+        
         // 如果今天的时间已过，设置为明天
         if (reminderTime <= now) {
             reminderTime.setDate(reminderTime.getDate() + 1);
+            console.log('时间已过，设置为明天:', reminderTime.toLocaleString());
         }
         
         return reminderTime;
@@ -332,7 +339,17 @@ class VoiceReminder {
      * @param {string} planName - 计划名称
      */
     setTaskReminder(task, planName) {
+        console.log('开始设置任务提醒:', {
+            taskName: task.name,
+            timeSlot: task.timeSlot,
+            planName: planName,
+            isEnabled: this.isEnabled,
+            studyStartEnabled: this.reminderTypes.studyStart,
+            studyEndEnabled: this.reminderTypes.studyEnd
+        });
+
         if (!this.isEnabled || !task.timeSlot) {
+            console.log('跳过设置提醒：语音未启用或无时间段');
             return;
         }
 
@@ -342,6 +359,8 @@ class VoiceReminder {
             return;
         }
 
+        console.log('解析时间段成功:', timeInfo);
+
         const reminderId = `${task.id}_${planName}`;
         
         // 清除现有提醒
@@ -350,16 +369,30 @@ class VoiceReminder {
         // 设置学习开始提醒（仅当启用时）
         if (this.reminderTypes.studyStart) {
             const startTime = this.getNextReminderTime(timeInfo);
+            const delay = startTime.getTime() - Date.now();
+            
+            console.log('设置学习开始提醒:', {
+                startTime: startTime.toLocaleString(),
+                delay: delay,
+                delayMinutes: Math.round(delay / 60000)
+            });
+
+            // 如果延迟时间太长（超过24小时），添加警告
+            if (delay > 24 * 60 * 60 * 1000) {
+                console.warn('提醒时间超过24小时，可能不会正确触发');
+            }
             
             // 本地定时器（页面活跃时使用）
             const startTimerId = setTimeout(() => {
+                console.log('触发学习开始提醒:', task.name);
                 this.playStartReminder(task, planName, timeInfo);
                 // 在学习开始时请求Wake Lock
                 this.requestWakeLock();
-            }, startTime.getTime() - Date.now());
+            }, delay);
 
             // Service Worker定时器（后台使用）
             if (this.serviceWorkerReady) {
+                console.log('向Service Worker发送提醒安排');
                 navigator.serviceWorker.controller?.postMessage({
                     type: 'SCHEDULE_REMINDER',
                     reminder: {
@@ -370,6 +403,8 @@ class VoiceReminder {
                         type: 'studyStart'
                     }
                 });
+            } else {
+                console.warn('Service Worker未准备就绪，无法设置后台提醒');
             }
 
             // 设置学习结束提醒（仅当启用时）
@@ -377,13 +412,21 @@ class VoiceReminder {
             if (this.reminderTypes.studyEnd) {
                 const endTime = new Date(startTime);
                 endTime.setHours(timeInfo.end.hour, timeInfo.end.minute, 0, 0);
+                const endDelay = endTime.getTime() - Date.now();
+                
+                console.log('设置学习结束提醒:', {
+                    endTime: endTime.toLocaleString(),
+                    endDelay: endDelay,
+                    endDelayMinutes: Math.round(endDelay / 60000)
+                });
                 
                 // 本地定时器
                 endTimerId = setTimeout(() => {
+                    console.log('触发学习结束提醒:', task.name);
                     this.playEndReminder(task, planName);
                     // 在学习结束时释放Wake Lock
                     this.releaseWakeLock();
-                }, endTime.getTime() - Date.now());
+                }, endDelay);
 
                 // Service Worker定时器
                 if (this.serviceWorkerReady) {
@@ -410,7 +453,10 @@ class VoiceReminder {
                 endTime: endTime
             });
 
-            console.log(`已设置增强版任务提醒: ${task.name} (${task.timeSlot})`);
+            console.log(`✅ 任务提醒设置完成: ${task.name} (${task.timeSlot})`);
+            console.log('当前活动提醒数量:', this.timers.size);
+        } else {
+            console.log('学习开始提醒被禁用，跳过设置');
         }
     }
 
@@ -1000,6 +1046,38 @@ class VoiceReminder {
                 wakeLockElement.textContent = `📱 Wake Lock: ${('wakeLock' in navigator) ? '支持' : '不支持'}`;
             }
         }, 100);
+    }
+
+    /**
+     * 设置测试提醒（用于调试）
+     * @param {Object} task - 任务对象  
+     * @param {string} planName - 计划名称
+     * @param {number} delaySeconds - 延迟秒数
+     */
+    setTestReminder(task, planName, delaySeconds = 5) {
+        console.log(`设置测试提醒：${delaySeconds}秒后触发`);
+        
+        const reminderId = `test_${task.id}_${planName}`;
+        
+        // 清除现有提醒
+        this.clearTaskReminder(reminderId);
+        
+        // 设置测试提醒
+        const testTimerId = setTimeout(() => {
+            console.log('触发测试提醒:', task.name);
+            this.playStartReminder(task, planName, { start: { hour: 0, minute: 0 }, end: { hour: 1, minute: 0 } });
+        }, delaySeconds * 1000);
+        
+        // 存储定时器ID
+        this.timers.set(reminderId, {
+            startTimer: testTimerId,
+            endTimer: null,
+            task: task,
+            planName: planName,
+            isTest: true
+        });
+        
+        console.log(`测试提醒已设置，${delaySeconds}秒后播放`);
     }
 }
 
