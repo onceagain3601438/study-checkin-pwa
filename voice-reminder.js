@@ -35,12 +35,11 @@ class VoiceReminder {
      * 初始化语音提醒系统
      */
     init() {
-        // 检查浏览器是否支持语音合成
-        if (!('speechSynthesis' in window)) {
-            console.warn('该浏览器不支持语音合成功能');
-            return;
-        }
-
+        console.log('🚀 开始初始化语音提醒系统...');
+        
+        // 🆕 延迟检查语音合成API，确保在强制刷新后也能正常工作
+        this.initializeSpeechSynthesis();
+        
         // 初始化Service Worker通信
         this.initServiceWorker();
         
@@ -53,13 +52,172 @@ class VoiceReminder {
         // 启动时间监控
         this.startTimeMonitoring();
         
-        // 添加语音提醒设置界面
-        this.addVoiceReminderUI();
+        // 延迟添加语音提醒设置界面，确保DOM加载完成
+        setTimeout(() => {
+            this.addVoiceReminderUI();
+        }, 100);
         
         // 请求通知权限
         this.requestNotificationPermission();
         
-        console.log('增强版语音提醒系统已启动');
+        console.log('✅ 语音提醒系统初始化完成');
+    }
+
+    /**
+     * 🆕 智能初始化语音合成API
+     */
+    initializeSpeechSynthesis() {
+        console.log('🔊 开始初始化语音合成API...');
+        
+        let retryCount = 0;
+        const maxRetries = 5;
+        
+        const checkSpeechSynthesis = () => {
+            retryCount++;
+            console.log(`🔄 语音API检查第 ${retryCount} 次...`);
+            
+            // 检查基本支持
+            if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) {
+                console.error('❌ 浏览器不支持语音合成API');
+                
+                if (retryCount < maxRetries) {
+                    console.log(`⏳ 等待 ${retryCount * 500}ms 后重试...`);
+                    setTimeout(checkSpeechSynthesis, retryCount * 500);
+                    return;
+                }
+                
+                // 达到最大重试次数，显示错误
+                this.showSpeechSynthesisError('浏览器不支持语音合成功能');
+                return;
+            }
+            
+            // 检查语音合成对象是否可用
+            if (!window.speechSynthesis) {
+                console.error('❌ speechSynthesis 对象不可用');
+                
+                if (retryCount < maxRetries) {
+                    setTimeout(checkSpeechSynthesis, retryCount * 500);
+                    return;
+                }
+                
+                this.showSpeechSynthesisError('语音合成对象不可用');
+                return;
+            }
+            
+            // 设置speechSynthesis引用
+            this.speechSynthesis = window.speechSynthesis;
+            
+            // 检查语音列表是否可用
+            this.checkVoicesList();
+            
+            console.log('✅ 语音合成API初始化成功');
+        };
+        
+        // 立即检查一次
+        checkSpeechSynthesis();
+    }
+
+    /**
+     * 🆕 检查语音列表
+     */
+    checkVoicesList() {
+        console.log('🎤 检查语音列表...');
+        
+        const voices = this.speechSynthesis.getVoices();
+        console.log(`📋 当前可用语音数量: ${voices.length}`);
+        
+        if (voices.length === 0) {
+            console.log('⏳ 语音列表为空，等待加载...');
+            
+            // 监听语音列表加载完成
+            this.speechSynthesis.addEventListener('voiceschanged', () => {
+                const newVoices = this.speechSynthesis.getVoices();
+                console.log(`🎤 语音列表已更新，可用语音数量: ${newVoices.length}`);
+                
+                if (newVoices.length > 0) {
+                    console.log('✅ 语音列表加载完成');
+                    this.logAvailableVoices(newVoices);
+                } else {
+                    console.warn('⚠️ 语音列表仍为空');
+                }
+            }, { once: true });
+            
+            // 设置超时检查
+            setTimeout(() => {
+                const finalVoices = this.speechSynthesis.getVoices();
+                if (finalVoices.length === 0) {
+                    console.warn('⚠️ 语音列表加载超时，但基本功能可用');
+                }
+            }, 3000);
+        } else {
+            console.log('✅ 语音列表已可用');
+            this.logAvailableVoices(voices);
+        }
+    }
+
+    /**
+     * 🆕 记录可用语音
+     */
+    logAvailableVoices(voices) {
+        console.log('📝 可用语音列表:');
+        voices.forEach((voice, index) => {
+            if (voice.lang.startsWith('zh')) {
+                console.log(`  ${index + 1}. ${voice.name} (${voice.lang}) - 中文语音`);
+            }
+        });
+    }
+
+    /**
+     * 🆕 显示语音合成错误
+     */
+    showSpeechSynthesisError(message) {
+        console.error('💥 语音合成初始化失败:', message);
+        
+        // 显示用户友好的错误提示
+        setTimeout(() => {
+            if (document.querySelector('.voice-error-notification')) return;
+            
+            const errorNotification = document.createElement('div');
+            errorNotification.className = 'voice-error-notification';
+            errorNotification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+                color: white;
+                padding: 15px 20px;
+                border-radius: 25px;
+                font-size: 14px;
+                font-weight: bold;
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+                z-index: 10000;
+                max-width: 90%;
+                text-align: center;
+                animation: fadeInOut 8s ease-in-out;
+            `;
+            
+            errorNotification.innerHTML = `
+                🔇 语音功能暂时不可用<br>
+                <span style="font-size: 11px; opacity: 0.9;">
+                    ${message}<br>
+                    请刷新页面重试
+                </span>
+            `;
+            
+            document.body.appendChild(errorNotification);
+            
+            // 8秒后自动移除
+            setTimeout(() => {
+                if (errorNotification && errorNotification.parentNode) {
+                    errorNotification.remove();
+                }
+            }, 8000);
+        }, 1000);
+        
+        // 禁用语音功能
+        this.isEnabled = false;
+        this.speechSynthesis = null;
     }
 
     /**
@@ -292,9 +450,21 @@ class VoiceReminder {
             return;
         }
         
-        // 如果没有指定类型，检查主开关
-        if (!type && (!this.isEnabled || !('speechSynthesis' in window))) {
-            console.log(`❌ 语音功能被禁用或不支持，跳过播放`);
+        // 检查语音引擎是否可用
+        if (!this.speechSynthesis) {
+            console.error('❌ 语音引擎未初始化或不可用');
+            
+            // 尝试重新初始化
+            this.initializeSpeechSynthesis();
+            
+            // 延迟重试
+            setTimeout(() => {
+                if (this.speechSynthesis) {
+                    this.speak(text, type, repeatCount, currentRepeat);
+                } else {
+                    console.error('❌ 语音引擎重新初始化失败');
+                }
+            }, 1000);
             return;
         }
 
@@ -306,7 +476,7 @@ class VoiceReminder {
 
         // 停止当前播放
         try {
-            speechSynthesis.cancel();
+            this.speechSynthesis.cancel();
             console.log('🛑 已停止当前语音播放');
         } catch (error) {
             console.warn('⚠️ 停止语音播放时出错:', error);
@@ -367,11 +537,11 @@ class VoiceReminder {
         // 尝试播放语音
         try {
             console.log(`🎯 开始播放语音: "${text}"`);
-            speechSynthesis.speak(utterance);
+            this.speechSynthesis.speak(utterance);
             
             // 检查播放状态
             setTimeout(() => {
-                if (!speechSynthesis.speaking && !this.isPlaying) {
+                if (!this.speechSynthesis.speaking && !this.isPlaying) {
                     console.warn('⚠️ 语音可能被浏览器阻止，尝试重新播放');
                     this.handleBlockedSpeech(text, type, repeatCount, currentRepeat);
                 }
@@ -388,8 +558,9 @@ class VoiceReminder {
      * 解决浏览器自动播放策略问题
      */
     activateSpeechSynthesis() {
-        if (!('speechSynthesis' in window)) {
-            console.error('❌ 浏览器不支持语音合成');
+        // 检查语音引擎是否可用
+        if (!this.speechSynthesis) {
+            console.error('❌ 语音引擎未初始化');
             return false;
         }
 
@@ -407,14 +578,14 @@ class VoiceReminder {
             });
 
             // 检查语音合成是否可用
-            const voices = speechSynthesis.getVoices();
+            const voices = this.speechSynthesis.getVoices();
             console.log(`🎤 可用语音数量: ${voices.length}`);
             
             // 如果没有语音，尝试触发语音列表加载
             if (voices.length === 0) {
                 console.log('📋 正在加载语音列表...');
-                speechSynthesis.addEventListener('voiceschanged', () => {
-                    const newVoices = speechSynthesis.getVoices();
+                this.speechSynthesis.addEventListener('voiceschanged', () => {
+                    const newVoices = this.speechSynthesis.getVoices();
                     console.log(`🎤 语音列表已更新，可用语音数量: ${newVoices.length}`);
                 }, { once: true });
             }
@@ -457,22 +628,22 @@ class VoiceReminder {
             utterance1.volume = 0.01;
             utterance1.rate = 10;
             utterance1.pitch = 0.1;
-            speechSynthesis.speak(utterance1);
+            this.speechSynthesis.speak(utterance1);
             
             // 方法2：创建极短的文本语音
             setTimeout(() => {
                 const utterance2 = new SpeechSynthesisUtterance('.');
                 utterance2.volume = 0.01;
                 utterance2.rate = 10;
-                speechSynthesis.speak(utterance2);
+                this.speechSynthesis.speak(utterance2);
             }, 50);
             
             // 方法3：尝试取消和重新激活
             setTimeout(() => {
-                speechSynthesis.cancel();
+                this.speechSynthesis.cancel();
                 const utterance3 = new SpeechSynthesisUtterance(' ');
                 utterance3.volume = 0.01;
-                speechSynthesis.speak(utterance3);
+                this.speechSynthesis.speak(utterance3);
             }, 100);
             
             console.log('✅ 严格模式激活完成');
@@ -490,7 +661,7 @@ class VoiceReminder {
         try {
             const testUtterance = new SpeechSynthesisUtterance('');
             testUtterance.volume = 0;
-            speechSynthesis.speak(testUtterance);
+            this.speechSynthesis.speak(testUtterance);
             console.log('✅ Safari模式激活完成');
         } catch (error) {
             console.error('💥 Safari模式激活失败:', error);
@@ -507,7 +678,7 @@ class VoiceReminder {
             const testUtterance = new SpeechSynthesisUtterance('test');
             testUtterance.volume = 0.01;
             testUtterance.rate = 5;
-            speechSynthesis.speak(testUtterance);
+            this.speechSynthesis.speak(testUtterance);
             console.log('✅ 通用模式激活完成');
         } catch (error) {
             console.error('💥 通用模式激活失败:', error);
@@ -551,7 +722,7 @@ class VoiceReminder {
             };
             
             // 播放测试语音
-            speechSynthesis.speak(testUtterance);
+            this.speechSynthesis.speak(testUtterance);
             
             // 超时机制
             setTimeout(() => {
@@ -1264,7 +1435,7 @@ class VoiceReminder {
         
         if (!this.speechSynthesis) {
             console.error('❌ 语音合成不可用');
-            alert('❌ 您的浏览器不支持语音功能');
+            alert('❌ 语音引擎未初始化，请刷新页面重试');
             return false;
         }
 
@@ -1376,6 +1547,14 @@ class VoiceReminder {
     }
 
     /**
+     * 🆕 更新状态显示
+     */
+    updateStatus(type, status) {
+        // 这里可以添加状态更新逻辑
+        console.log(`📊 状态更新: ${type} = ${status}`);
+    }
+
+    /**
      * 针对严格浏览器的强制激活
      */
     async forceActivateForStrictBrowsers() {
@@ -1397,29 +1576,29 @@ class VoiceReminder {
                             const u = new SpeechSynthesisUtterance('.');
                             u.volume = 0.01;
                             u.rate = 10;
-                            speechSynthesis.speak(u);
+                            this.speechSynthesis.speak(u);
                         },
                         () => {
                             // 策略2：空文本 + 低音量
                             const u = new SpeechSynthesisUtterance('');
                             u.volume = 0.001;
-                            speechSynthesis.speak(u);
+                            this.speechSynthesis.speak(u);
                         },
                         () => {
                             // 策略3：单个空格
                             const u = new SpeechSynthesisUtterance(' ');
                             u.volume = 0.05;
                             u.rate = 5;
-                            speechSynthesis.speak(u);
+                            this.speechSynthesis.speak(u);
                         },
                         () => {
                             // 策略4：取消后重新尝试
-                            speechSynthesis.cancel();
+                            this.speechSynthesis.cancel();
                             setTimeout(() => {
                                 const u = new SpeechSynthesisUtterance('test');
                                 u.volume = 0.01;
                                 u.rate = 10;
-                                speechSynthesis.speak(u);
+                                this.speechSynthesis.speak(u);
                             }, 10);
                         }
                     ];

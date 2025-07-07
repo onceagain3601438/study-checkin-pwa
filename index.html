@@ -152,35 +152,86 @@
         
         /* 页面刷新按钮样式 */
         .refresh-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 32px;
-            height: 32px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
             border-radius: 50%;
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             font-size: 16px;
             color: white;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
-            z-index: 10;
-            user-select: none;
         }
-        
+
         .refresh-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            border-color: rgba(255, 255, 255, 0.5);
-            transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
         }
-        
+
         .refresh-btn:active {
             transform: scale(0.95);
+        }
+
+        /* 🆕 语音初始化通知动画样式 */
+        @keyframes slideInStay {
+            0% { 
+                opacity: 0; 
+                transform: translateX(-50%) translateY(-20px); 
+            }
+            100% { 
+                opacity: 1; 
+                transform: translateX(-50%) translateY(0); 
+            }
+        }
+
+        @keyframes fadeInOut {
+            0%, 100% { 
+                opacity: 0; 
+                transform: translateX(-50%) translateY(-10px); 
+            }
+            15%, 85% { 
+                opacity: 1; 
+                transform: translateX(-50%) translateY(0); 
+            }
+        }
+
+        /* 语音错误通知样式 */
+        .voice-init-error {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            z-index: 10001;
+            max-width: 90%;
+            text-align: center;
+            animation: slideInStay 0.5s ease-out;
+        }
+
+        .voice-init-error button {
+            margin-top: 8px;
+            padding: 4px 12px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-size: 10px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .voice-init-error button:hover {
+            background: rgba(255,255,255,0.3);
         }
         
         .refresh-btn.spinning {
@@ -1050,33 +1101,33 @@
                 return;
             }
             
-            // 初始化增强版语音提醒系统
+            // 🆕 使用增强版语音提醒系统初始化
             if (typeof VoiceReminder !== 'undefined') {
-                try {
-                    console.log('创建语音提醒对象...');
-                    voiceReminder = new VoiceReminder();
-                    window.voiceReminder = voiceReminder;
+                console.log('🎤 开始初始化增强版语音提醒系统...');
+                
+                // 使用新的增强版初始化函数
+                initializeVoiceReminderWithRetry();
+                
+                // 延迟设置全局数据和用户交互激活
+                setTimeout(() => {
+                    // 将数据暴露给全局
+                    window.studyData = studyData;
+                    window.currentStudyDate = currentStudyDate;
                     
-                    // 等待语音系统完全加载
-                    setTimeout(() => {
-                        console.log('更新语音指示器...');
-                        updateVoiceIndicator();
-                        
-                        // 将数据暴露给全局
-                        window.studyData = studyData;
-                        window.currentStudyDate = currentStudyDate;
-                        
-                        console.log('语音提醒系统初始化完成');
-                        
-                        // 设置用户交互激活语音
+                    console.log('📊 全局数据已设置');
+                    
+                    // 如果语音系统初始化成功，设置用户交互激活
+                    if (window.voiceReminder && window.voiceReminder.speechSynthesis) {
                         setupVoiceActivation();
-                        
-                    }, 1000);
-                } catch (error) {
-                    console.error('语音提醒系统初始化失败:', error);
-                }
+                    } else {
+                        console.warn('⚠️ 语音系统未完全初始化，跳过用户交互激活设置');
+                    }
+                    
+                }, 2000); // 给语音初始化更多时间
+                
             } else {
-                console.error('VoiceReminder类未找到，请检查voice-reminder.js是否正确加载');
+                console.error('❌ VoiceReminder类未找到，请检查voice-reminder.js是否正确加载');
+                showVoiceInitError('VoiceReminder类未找到，语音功能不可用');
             }
             
             // 主动请求通知权限
@@ -3313,6 +3364,160 @@
             }
             
             return false; // 阻止默认行为
+        }
+
+        // 🆕 增强版语音功能初始化，确保强制更新后正常工作
+        function initializeVoiceReminderWithRetry() {
+            console.log('🚀 开始增强版语音功能初始化...');
+            
+            let initAttempts = 0;
+            const maxInitAttempts = 3;
+            
+            const attemptVoiceInit = () => {
+                initAttempts++;
+                console.log(`🔄 语音初始化尝试 ${initAttempts}/${maxInitAttempts}`);
+                
+                try {
+                    // 检查基本API支持
+                    if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) {
+                        console.error('❌ 浏览器不支持语音合成API');
+                        
+                        if (initAttempts < maxInitAttempts) {
+                            console.log(`⏳ 等待 ${initAttempts * 1000}ms 后重试...`);
+                            setTimeout(attemptVoiceInit, initAttempts * 1000);
+                            return;
+                        }
+                        
+                        showVoiceInitError('浏览器不支持语音合成功能');
+                        return;
+                    }
+                    
+                    // 检查语音合成对象
+                    if (!window.speechSynthesis) {
+                        console.error('❌ speechSynthesis 对象不可用');
+                        
+                        if (initAttempts < maxInitAttempts) {
+                            setTimeout(attemptVoiceInit, initAttempts * 1000);
+                            return;
+                        }
+                        
+                        showVoiceInitError('语音合成对象不可用');
+                        return;
+                    }
+                    
+                    // 创建语音提醒实例
+                    console.log('🎤 创建语音提醒实例...');
+                    window.voiceReminder = new VoiceReminder();
+                    
+                    // 检查实例是否创建成功
+                    if (window.voiceReminder && window.voiceReminder.speechSynthesis) {
+                        console.log('✅ 语音提醒系统初始化成功');
+                        
+                        // 更新语音指示器
+                        updateVoiceIndicator();
+                        
+                        // 显示成功通知
+                        showVoiceInitSuccess();
+                    } else {
+                        console.warn('⚠️ 语音提醒实例创建但引擎未初始化');
+                        
+                        if (initAttempts < maxInitAttempts) {
+                            setTimeout(attemptVoiceInit, initAttempts * 1000);
+                            return;
+                        }
+                        
+                        showVoiceInitError('语音引擎初始化失败');
+                    }
+                    
+                } catch (error) {
+                    console.error('💥 语音初始化异常:', error);
+                    
+                    if (initAttempts < maxInitAttempts) {
+                        setTimeout(attemptVoiceInit, initAttempts * 1000);
+                    } else {
+                        showVoiceInitError('语音初始化异常: ' + error.message);
+                    }
+                }
+            };
+            
+            // 立即尝试初始化
+            attemptVoiceInit();
+        }
+
+        /**
+         * 🆕 显示语音初始化错误
+         */
+        function showVoiceInitError(message) {
+            console.error('💥 语音初始化最终失败:', message);
+            
+            setTimeout(() => {
+                if (document.querySelector('.voice-init-error')) return;
+                
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'voice-init-error';
+                errorDiv.style.cssText = `
+                    position: fixed;
+                    top: 80px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+                    color: white;
+                    padding: 15px 20px;
+                    border-radius: 20px;
+                    font-size: 13px;
+                    font-weight: bold;
+                    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+                    z-index: 10001;
+                    max-width: 90%;
+                    text-align: center;
+                    animation: slideInStay 0.5s ease-out;
+                `;
+                
+                errorDiv.innerHTML = `
+                    🔇 语音功能初始化失败<br>
+                    <span style="font-size: 11px; opacity: 0.9;">
+                        ${message}<br>
+                        <button onclick="this.parentElement.parentElement.remove(); location.reload();" 
+                                style="margin-top: 8px; padding: 4px 12px; border: none; border-radius: 10px; 
+                                       background: rgba(255,255,255,0.2); color: white; font-size: 10px; cursor: pointer;">
+                            刷新页面重试
+                        </button>
+                    </span>
+                `;
+                
+                document.body.appendChild(errorDiv);
+            }, 500);
+        }
+
+        /**
+         * 🆕 显示语音初始化成功
+         */
+        function showVoiceInitSuccess() {
+            const successDiv = document.createElement('div');
+            successDiv.style.cssText = `
+                position: fixed;
+                top: 80px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: linear-gradient(135deg, #51cf66, #69db7c);
+                color: white;
+                padding: 10px 15px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: bold;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+                z-index: 10001;
+                animation: fadeInOut 3s ease-in-out;
+            `;
+            
+            successDiv.innerHTML = '🔊 语音功能已启用';
+            document.body.appendChild(successDiv);
+            
+            setTimeout(() => {
+                if (successDiv && successDiv.parentNode) {
+                    successDiv.remove();
+                }
+            }, 3000);
         }
     </script>
 </body>
