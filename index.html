@@ -453,7 +453,7 @@
         
         .table-header {
             display: grid;
-            grid-template-columns: 1fr 1.5fr 0.5fr 0.5fr 0.8fr 0.5fr;
+            grid-template-columns: 1fr 1.5fr 0.5fr 0.5fr 0.8fr 0.8fr;
             gap: 5px;
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
@@ -466,7 +466,7 @@
         
         .table-row {
             display: grid;
-            grid-template-columns: 1fr 1.5fr 0.5fr 0.5fr 0.8fr 0.5fr;
+            grid-template-columns: 1fr 1.5fr 0.5fr 0.5fr 0.8fr 0.8fr;
             gap: 5px;
             align-items: center;
             padding: 8px 10px;
@@ -736,7 +736,7 @@
         @media (max-width: 480px) {
             .table-header, .table-row {
                 font-size: 10px;
-                grid-template-columns: 0.8fr 1.2fr 0.4fr 0.4fr 0.6fr 0.4fr;
+                grid-template-columns: 0.8fr 1.2fr 0.4fr 0.4fr 0.6fr 0.6fr;
             }
             
             .time-slot-btn, .points-btn {
@@ -746,9 +746,15 @@
             }
             
             .delete-task-btn {
-                width: 20px;
-                height: 20px;
-                font-size: 10px;
+                width: 18px;
+                height: 18px;
+                font-size: 9px;
+            }
+            
+            .move-task-btn {
+                width: 18px;
+                height: 18px;
+                font-size: 8px;
             }
             
             .checkbox {
@@ -819,6 +825,32 @@
         .btn-default {
             background: linear-gradient(135deg, #51cf66, #69db7c);
             color: white;
+        }
+        
+        /* 🆕 任务移动按钮样式 */
+        .move-task-btn {
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            cursor: pointer;
+            font-size: 10px;
+            transition: all 0.3s;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+        }
+        
+        .move-task-btn:hover {
+            background: rgba(102, 126, 234, 0.2);
+            color: #4c6ef5;
+            transform: scale(1.1);
+        }
+        
+        .move-task-btn:active {
+            transform: scale(0.95);
         }
     </style>
 </head>
@@ -2867,7 +2899,7 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                                 <div>操作</div>
                             </div>
                             
-                            ${plan.tasks.map(task => `
+                            ${plan.tasks.map((task, taskIndex) => `
                                 <div class="table-row">
                                     <div>
                                         <div class="time-slot-btn ${task.timeSlot ? 'has-time' : 'no-time'} ${task.timeSlot && voiceReminder?.isEnabled ? 'has-reminder' : ''}" 
@@ -2896,7 +2928,19 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                                             ${task.points > 0 ? `${task.earnedPoints}/${task.points}` : '设置'}
                                         </div>
                                     </div>
-                                    <div>
+                                    <div style="display: flex; gap: 2px; justify-content: center; align-items: center;">
+                                        ${taskIndex > 0 ? `
+                                            <div class="move-task-btn" onclick="moveTaskUp(${plan.id}, ${task.id})" title="上移任务">
+                                                ⬆️
+                                            </div>
+                                        ` : `<div style="width: 25px;"></div>`}
+                                        
+                                        ${taskIndex < plan.tasks.length - 1 ? `
+                                            <div class="move-task-btn" onclick="moveTaskDown(${plan.id}, ${task.id})" title="下移任务">
+                                                ⬇️
+                                            </div>
+                                        ` : `<div style="width: 25px;"></div>`}
+                                        
                                         <div class="delete-task-btn" onclick="deleteTask(${plan.id}, ${task.id})" title="删除任务">
                                             🗑️
                                         </div>
@@ -5999,6 +6043,92 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
         }
 
         // 🆕 ==================== 奖励系统功能函数结束 ====================
+
+        /**
+         * 上移任务 - 将任务向上移动一个位置
+         * @param {number} planId - 计划ID 
+         * @param {number} taskId - 任务ID
+         */
+        function moveTaskUp(planId, taskId) {
+            const dateKey = getDateKey(currentStudyDate);
+            const plan = studyData[dateKey]?.find(p => p.id === planId);
+            
+            if (!plan) {
+                console.error('找不到对应的计划');
+                return;
+            }
+            
+            const taskIndex = plan.tasks.findIndex(t => t.id === taskId);
+            
+            if (taskIndex === -1) {
+                console.error('找不到对应的任务');
+                return;
+            }
+            
+            if (taskIndex === 0) {
+                // 已经是第一个任务，无法上移
+                return;
+            }
+            
+            // 交换当前任务和上一个任务的位置
+            const temp = plan.tasks[taskIndex];
+            plan.tasks[taskIndex] = plan.tasks[taskIndex - 1];
+            plan.tasks[taskIndex - 1] = temp;
+            
+            // 保存数据并更新显示
+            saveData();
+            updateStudyDisplay();
+            
+            // 播放操作确认语音
+            if (voiceReminder && voiceReminder.isEnabled) {
+                voiceReminder.speak(`任务"${temp.name}"已上移`, 'settingConfirm', 1);
+            }
+            
+            console.log(`✅ 任务"${temp.name}"已上移`);
+        }
+
+        /**
+         * 下移任务 - 将任务向下移动一个位置
+         * @param {number} planId - 计划ID
+         * @param {number} taskId - 任务ID  
+         */
+        function moveTaskDown(planId, taskId) {
+            const dateKey = getDateKey(currentStudyDate);
+            const plan = studyData[dateKey]?.find(p => p.id === planId);
+            
+            if (!plan) {
+                console.error('找不到对应的计划');
+                return;
+            }
+            
+            const taskIndex = plan.tasks.findIndex(t => t.id === taskId);
+            
+            if (taskIndex === -1) {
+                console.error('找不到对应的任务');
+                return;
+            }
+            
+            if (taskIndex === plan.tasks.length - 1) {
+                // 已经是最后一个任务，无法下移
+                return;
+            }
+            
+            // 交换当前任务和下一个任务的位置
+            const temp = plan.tasks[taskIndex];
+            plan.tasks[taskIndex] = plan.tasks[taskIndex + 1];
+            plan.tasks[taskIndex + 1] = temp;
+            
+            // 保存数据并更新显示
+            saveData();
+            updateStudyDisplay();
+            
+            // 播放操作确认语音
+            if (voiceReminder && voiceReminder.isEnabled) {
+                voiceReminder.speak(`任务"${temp.name}"已下移`, 'settingConfirm', 1);
+            }
+            
+            console.log(`✅ 任务"${temp.name}"已下移`);
+        }
     </script>
 </body>
 </html> 
