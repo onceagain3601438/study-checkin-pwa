@@ -1700,6 +1700,267 @@ class VoiceReminder {
         
         console.log(`测试提醒已设置，${delaySeconds}秒后播放`);
     }
+
+    /**
+     * 🆕 iPhone 6专用语音引擎激活
+     */
+    activateForIPhone6() {
+        console.log('📱 启用iPhone 6专用语音引擎激活...');
+        
+        const isIPhone6 = /iPhone OS 9_|iPhone OS 10_|iPhone OS 11_|iPhone OS 12_/.test(navigator.userAgent);
+        
+        if (!isIPhone6) {
+            console.log('⚠️ 非iPhone 6设备，跳过专用激活');
+            return;
+        }
+        
+        try {
+            // iPhone 6 多重激活策略
+            const strategies = [
+                // 策略1：极短文本激活
+                () => {
+                    console.log('🔧 策略1：极短文本激活');
+                    const u = new SpeechSynthesisUtterance('a');
+                    u.volume = 0.01;
+                    u.rate = 10;
+                    u.pitch = 0.1;
+                    this.speechSynthesis.speak(u);
+                },
+                
+                // 策略2：空白激活
+                () => {
+                    console.log('🔧 策略2：空白激活');
+                    const u = new SpeechSynthesisUtterance(' ');
+                    u.volume = 0.001;
+                    u.rate = 20;
+                    this.speechSynthesis.speak(u);
+                },
+                
+                // 策略3：取消重新激活
+                () => {
+                    console.log('🔧 策略3：取消重新激活');
+                    this.speechSynthesis.cancel();
+                    setTimeout(() => {
+                        const u = new SpeechSynthesisUtterance('.');
+                        u.volume = 0.01;
+                        u.rate = 5;
+                        this.speechSynthesis.speak(u);
+                    }, 50);
+                },
+                
+                // 策略4：强制暂停恢复
+                () => {
+                    console.log('🔧 策略4：强制暂停恢复');
+                    const u = new SpeechSynthesisUtterance('test');
+                    u.volume = 0.01;
+                    u.rate = 10;
+                    this.speechSynthesis.speak(u);
+                    setTimeout(() => {
+                        this.speechSynthesis.pause();
+                        setTimeout(() => {
+                            this.speechSynthesis.resume();
+                        }, 10);
+                    }, 10);
+                },
+                
+                // 策略5：强制语音列表加载
+                () => {
+                    console.log('🔧 策略5：强制语音列表加载');
+                    const voices = this.speechSynthesis.getVoices();
+                    console.log(`iPhone 6 可用语音数量: ${voices.length}`);
+                    
+                    if (voices.length > 0) {
+                        const u = new SpeechSynthesisUtterance('');
+                        u.voice = voices[0];
+                        u.volume = 0.01;
+                        this.speechSynthesis.speak(u);
+                    }
+                }
+            ];
+            
+            // 依次执行所有策略
+            strategies.forEach((strategy, index) => {
+                setTimeout(() => {
+                    try {
+                        strategy();
+                    } catch (error) {
+                        console.warn(`iPhone 6 策略 ${index + 1} 失败:`, error);
+                    }
+                }, index * 100);
+            });
+            
+            console.log('✅ iPhone 6专用激活策略执行完成');
+            
+        } catch (error) {
+            console.error('💥 iPhone 6专用激活失败:', error);
+        }
+    }
+
+    /**
+     * 🆕 iPhone 6专用语音测试
+     */
+    async testForIPhone6() {
+        console.log('🧪 开始iPhone 6专用语音测试...');
+        
+        const isIPhone6 = /iPhone OS 9_|iPhone OS 10_|iPhone OS 11_|iPhone OS 12_/.test(navigator.userAgent);
+        
+        if (!isIPhone6) {
+            console.log('⚠️ 非iPhone 6设备，使用标准测试');
+            return this.testVoice();
+        }
+        
+        try {
+            // iPhone 6 特殊测试流程
+            console.log('📱 执行iPhone 6特殊测试流程...');
+            
+            // 1. 强制激活
+            this.activateForIPhone6();
+            
+            // 2. 等待激活完成
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // 3. 检查语音合成状态
+            const voices = this.speechSynthesis.getVoices();
+            console.log(`iPhone 6 语音检查: ${voices.length} 个可用语音`);
+            
+            // 4. 创建测试语音
+            const testText = 'iPhone 6 专用语音测试，系统正常运行';
+            const utterance = new SpeechSynthesisUtterance(testText);
+            
+            // iPhone 6 优化参数
+            utterance.volume = 0.9;
+            utterance.rate = 0.8;
+            utterance.pitch = 1.0;
+            utterance.lang = 'zh-CN';
+            
+            // 如果有可用语音，使用第一个
+            if (voices.length > 0) {
+                utterance.voice = voices[0];
+                console.log(`iPhone 6 使用语音: ${voices[0].name}`);
+            }
+            
+            // 5. 播放测试语音
+            return new Promise((resolve) => {
+                let testCompleted = false;
+                
+                utterance.onstart = () => {
+                    console.log('✅ iPhone 6 语音测试开始');
+                };
+                
+                utterance.onend = () => {
+                    console.log('✅ iPhone 6 语音测试完成');
+                    if (!testCompleted) {
+                        testCompleted = true;
+                        resolve(true);
+                    }
+                };
+                
+                utterance.onerror = (event) => {
+                    console.error('💥 iPhone 6 语音测试失败:', event);
+                    if (!testCompleted) {
+                        testCompleted = true;
+                        resolve(false);
+                    }
+                };
+                
+                // 强制取消当前语音
+                this.speechSynthesis.cancel();
+                
+                // 播放测试语音
+                setTimeout(() => {
+                    this.speechSynthesis.speak(utterance);
+                }, 100);
+                
+                // 超时处理
+                setTimeout(() => {
+                    if (!testCompleted) {
+                        console.warn('⏰ iPhone 6 语音测试超时');
+                        testCompleted = true;
+                        resolve(false);
+                    }
+                }, 8000);
+            });
+            
+        } catch (error) {
+            console.error('💥 iPhone 6专用测试异常:', error);
+            return false;
+        }
+    }
+
+    /**
+     * 🆕 iPhone 6专用语音播放
+     */
+    speakForIPhone6(text, type = null, repeatCount = 3) {
+        console.log(`🔊 iPhone 6专用语音播放: "${text}"`);
+        
+        const isIPhone6 = /iPhone OS 9_|iPhone OS 10_|iPhone OS 11_|iPhone OS 12_/.test(navigator.userAgent);
+        
+        if (!isIPhone6) {
+            console.log('⚠️ 非iPhone 6设备，使用标准播放');
+            return this.speak(text, type, repeatCount);
+        }
+        
+        try {
+            // iPhone 6 特殊播放流程
+            console.log('📱 执行iPhone 6特殊播放流程...');
+            
+            // 1. 预激活
+            this.activateForIPhone6();
+            
+            // 2. 延迟播放
+            setTimeout(() => {
+                // 创建iPhone 6优化的语音
+                const utterance = new SpeechSynthesisUtterance(text);
+                
+                // iPhone 6 优化参数
+                utterance.volume = Math.min(this.volume * 1.2, 1.0); // 稍微增加音量
+                utterance.rate = Math.max(this.rate * 0.9, 0.5); // 稍微降低语速
+                utterance.pitch = this.pitch;
+                utterance.lang = 'zh-CN';
+                
+                // 获取可用语音
+                const voices = this.speechSynthesis.getVoices();
+                if (voices.length > 0) {
+                    // 优先使用中文语音
+                    const chineseVoice = voices.find(voice => voice.lang.startsWith('zh'));
+                    if (chineseVoice) {
+                        utterance.voice = chineseVoice;
+                        console.log(`iPhone 6 使用中文语音: ${chineseVoice.name}`);
+                    } else {
+                        utterance.voice = voices[0];
+                        console.log(`iPhone 6 使用默认语音: ${voices[0].name}`);
+                    }
+                }
+                
+                // 事件监听
+                utterance.onstart = () => {
+                    console.log(`✅ iPhone 6 开始播放: "${text}"`);
+                };
+                
+                utterance.onend = () => {
+                    console.log(`✅ iPhone 6 播放完成: "${text}"`);
+                };
+                
+                utterance.onerror = (event) => {
+                    console.error(`💥 iPhone 6 播放失败: "${text}"`, event);
+                };
+                
+                // 强制取消当前语音
+                this.speechSynthesis.cancel();
+                
+                // 播放语音
+                setTimeout(() => {
+                    this.speechSynthesis.speak(utterance);
+                }, 50);
+                
+            }, 200);
+            
+        } catch (error) {
+            console.error('💥 iPhone 6专用播放异常:', error);
+            // 降级到标准播放
+            this.speak(text, type, 1);
+        }
+    }
 }
 
 // 全局函数，供HTML调用
