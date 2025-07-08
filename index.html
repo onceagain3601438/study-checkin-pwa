@@ -1060,12 +1060,16 @@
     </div>
 
     <script>
-        // 全局变量
-        let currentCalendarDate = new Date();
-        let currentStudyDate = new Date();
+        // 全局变量定义
         let studyData = {};
-        let totalPoints = 0;
-        let voiceReminder = null;
+        let currentStudyDate = new Date();
+        let currentPage = 'calendar';
+        let voiceReminder = null; // 🆕 语音提醒对象全局变量
+        
+        // 日期格式化
+        function getDateKey(date) {
+            return date.toISOString().split('T')[0];
+        }
 
         // 页面切换
         function switchPage(page) {
@@ -1713,6 +1717,9 @@
             try {
                 // 创建语音提醒实例
                 window.voiceReminder = new VoiceReminder();
+                
+                // 🆕 设置全局变量别名，方便其他地方引用
+                voiceReminder = window.voiceReminder;
                 
                 // 等待初始化完成
                 setTimeout(() => {
@@ -3885,6 +3892,9 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                 try {
                     // 创建语音提醒实例
                     window.voiceReminder = new VoiceReminder();
+                    
+                    // 🆕 设置全局变量别名，方便其他地方引用
+                    voiceReminder = window.voiceReminder;
                     
                     // 等待初始化完成
                     setTimeout(() => {
