@@ -994,23 +994,31 @@
 
         <!-- 🆕 奖励系统区域 -->
         <div style="background: white; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);">
-            <h3 style="margin-bottom: 15px; font-size: 14px;">🎁 积分奖励系统</h3>
-            <button onclick="showRewardSettings()" style="
-                background: linear-gradient(135deg, #667eea, #764ba2);
-                color: white;
-                border: none;
-                padding: 15px;
-                border-radius: 15px;
-                font-weight: bold;
-                cursor: pointer;
-                font-size: 16px;
-                width: 100%;
-                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-            ">
-                ⚙️ 设置积分奖励
-            </button>
-            <div id="nextRewardPreview" style="margin-top: 15px; padding: 12px; background: #f8f9ff; border-radius: 10px; font-size: 13px; color: #666;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0; font-size: 16px; color: #333;">🎁 积分奖励</h3>
+                <button onclick="showRewardSettings()" style="
+                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    color: white;
+                    border: none;
+                    padding: 8px 15px;
+                    border-radius: 8px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    font-size: 14px;
+                    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+                ">
+                    ⚙️ 设置奖励
+                </button>
+            </div>
+            
+            <!-- 奖励进度概览 -->
+            <div id="nextRewardPreview" style="margin-bottom: 15px; padding: 12px; background: #f8f9ff; border-radius: 10px; font-size: 13px; color: #666;">
                 正在加载奖励信息...
+            </div>
+            
+            <!-- 完整奖励列表 -->
+            <div id="rewardListInPoints">
+                <!-- 奖励列表将在这里动态生成 -->
             </div>
         </div>
     </div>
@@ -1126,6 +1134,7 @@
             // 🆕 初始化奖励系统
             loadRewardData();
             updateRewardPreview();
+            renderRewardListInPoints();
             
             console.log('开始初始化语音提醒系统...');
             
@@ -3308,8 +3317,162 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
             
             document.getElementById('monthPointsCenter').textContent = monthPoints;
             
-            // 🆕 更新奖励预览
+            // 🆕 更新奖励预览和列表
             updateRewardPreview();
+            renderRewardListInPoints();
+        }
+
+        /**
+         * 渲染积分页面中的奖励列表（简洁版）
+         */
+        function renderRewardListInPoints() {
+            const rewardListElement = document.getElementById('rewardListInPoints');
+            if (!rewardListElement) return;
+            
+            if (rewardSettings.length === 0) {
+                rewardListElement.innerHTML = `
+                    <div style="text-align: center; color: #999; padding: 20px; border: 2px dashed #e0e0e0; border-radius: 10px;">
+                        <div style="font-size: 20px; margin-bottom: 8px;">🎯</div>
+                        <div style="font-size: 14px; font-weight: bold; margin-bottom: 5px;">还没有设置奖励</div>
+                        <div style="font-size: 12px; color: #666;">点击"设置奖励"按钮添加你的第一个奖励吧！</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            const sortedRewards = [...rewardSettings].sort((a, b) => a.requiredPoints - b.requiredPoints);
+            
+            const rewardItems = sortedRewards.map(reward => {
+                const isAchieved = totalPoints >= reward.requiredPoints;
+                const isClaimed = isRewardClaimed(reward.id);
+                const progress = Math.min((totalPoints / reward.requiredPoints) * 100, 100);
+                const remaining = Math.max(reward.requiredPoints - totalPoints, 0);
+                
+                return `
+                    <div style="
+                        background: ${isAchieved ? 'linear-gradient(135deg, #e7f5e7, #d4edda)' : 'linear-gradient(135deg, #f8f9ff, #e8eaff)'};
+                        padding: 12px 15px;
+                        border-radius: 12px;
+                        margin-bottom: 10px;
+                        border: 2px solid ${isAchieved ? '#51cf66' : '#e0e0e0'};
+                        position: relative;
+                    ">
+                        ${isAchieved ? '<div style="position: absolute; top: 8px; right: 12px; color: #51cf66; font-size: 16px;">✅</div>' : ''}
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: bold; font-size: 15px; color: #333; margin-bottom: 3px;">
+                                    🏆 ${reward.rewardName}
+                                </div>
+                                <div style="color: #666; font-size: 13px;">
+                                    目标：${reward.requiredPoints}分
+                                    ${reward.description ? ` • ${reward.description}` : ''}
+                                </div>
+                            </div>
+                            
+                            ${isAchieved && !isClaimed ? `
+                                <button onclick="claimReward('${reward.id}')" style="
+                                    background: linear-gradient(135deg, #ffa726, #ff8f00);
+                                    color: white;
+                                    border: none;
+                                    padding: 6px 12px;
+                                    border-radius: 6px;
+                                    cursor: pointer;
+                                    font-size: 12px;
+                                    font-weight: bold;
+                                    margin-left: 10px;
+                                ">
+                                    🎁 领取
+                                </button>
+                            ` : ''}
+                        </div>
+                        
+                        <!-- 进度条 -->
+                        <div style="margin-bottom: 5px;">
+                            <div style="background: #f0f0f0; border-radius: 10px; height: 6px; overflow: hidden;">
+                                <div style="
+                                    background: ${isAchieved ? 'linear-gradient(135deg, #51cf66, #69db7c)' : 'linear-gradient(135deg, #667eea, #764ba2)'};
+                                    height: 100%;
+                                    width: ${progress}%;
+                                    transition: width 0.3s ease;
+                                "></div>
+                            </div>
+                        </div>
+                        
+                        <!-- 状态信息 -->
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="
+                                background: ${isAchieved ? '#51cf66' : (progress > 50 ? '#667eea' : '#868e96')};
+                                color: white;
+                                padding: 3px 8px;
+                                border-radius: 12px;
+                                font-size: 11px;
+                                font-weight: bold;
+                            ">
+                                ${isAchieved ? '已达成' : (remaining > 0 ? `还需 ${remaining} 分` : '即将达成')}
+                            </span>
+                            
+                            <div style="font-size: 11px; color: #888;">
+                                ${Math.round(progress)}% 完成
+                                ${isClaimed ? ' • 已领取' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            rewardListElement.innerHTML = rewardItems;
+        }
+
+        /**
+         * 快速领取奖励（在积分页面）
+         * @param {string} rewardId - 奖励ID
+         */
+        function claimReward(rewardId) {
+            const reward = rewardSettings.find(r => r.id === rewardId);
+            if (!reward) {
+                alert('找不到要领取的奖励！');
+                return;
+            }
+            
+            if (totalPoints < reward.requiredPoints) {
+                alert(`积分不足！还需要 ${reward.requiredPoints - totalPoints} 积分才能领取此奖励。`);
+                return;
+            }
+            
+            if (isRewardClaimed(reward.id)) {
+                alert('该奖励已经领取过了！');
+                return;
+            }
+            
+            // 确认领取
+            if (confirm(`🎉 恭喜达成奖励！\n\n奖励名称：${reward.rewardName}\n所需积分：${reward.requiredPoints}分\n\n确定要领取这个奖励吗？`)) {
+                // 记录领取
+                const claimedReward = {
+                    id: reward.id,
+                    rewardName: reward.rewardName,
+                    requiredPoints: reward.requiredPoints,
+                    description: reward.description,
+                    claimedAt: new Date().toISOString()
+                };
+                
+                claimedRewards.push(claimedReward);
+                saveRewardData();
+                
+                // 更新显示
+                updateRewardPreview();
+                renderRewardListInPoints();
+                
+                // 播放领取成功语音
+                if (voiceReminder && voiceReminder.isEnabled) {
+                    voiceReminder.speak(`恭喜您成功领取奖励：${reward.rewardName}！继续加油！`, 'taskComplete', 1);
+                }
+                
+                // 显示成功提示
+                showSuccessMessage(`🎉 奖励领取成功！\n"${reward.rewardName}"\n\n继续努力，获得更多奖励吧！`);
+                
+                console.log('🎁 奖励领取成功:', claimedReward);
+            }
         }
 
         // 模态框点击外部关闭
@@ -5233,6 +5396,7 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
 
         /**
          * 渲染奖励设置列表
+         * @returns {string} 奖励列表HTML
          */
         function renderRewardSettingsList() {
             if (rewardSettings.length === 0) {
@@ -5274,18 +5438,30 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                                 ${isRewardClaimed(reward.id) ? '<span style="background: #ffa726; color: white; padding: 4px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; margin-left: 8px;">已领取</span>' : ''}
                             </div>
                         </div>
-                        <button onclick="deleteReward('${reward.id}')" style="
-                            background: #ff6b6b;
-                            color: white;
-                            border: none;
-                            padding: 8px 12px;
-                            border-radius: 8px;
-                            cursor: pointer;
-                            font-size: 14px;
-                            margin-left: 15px;
-                        " title="删除此奖励">
-                            🗑️
-                        </button>
+                        <div style="display: flex; gap: 8px; margin-left: 15px;">
+                            <button onclick="editReward('${reward.id}')" style="
+                                background: #4dabf7;
+                                color: white;
+                                border: none;
+                                padding: 8px 12px;
+                                border-radius: 8px;
+                                cursor: pointer;
+                                font-size: 14px;
+                            " title="编辑此奖励">
+                                ✏️
+                            </button>
+                            <button onclick="deleteReward('${reward.id}')" style="
+                                background: #ff6b6b;
+                                color: white;
+                                border: none;
+                                padding: 8px 12px;
+                                border-radius: 8px;
+                                cursor: pointer;
+                                font-size: 14px;
+                            " title="删除此奖励">
+                                🗑️
+                            </button>
+                        </div>
                     </div>
                 </div>
             `).join('');
@@ -5376,6 +5552,10 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
             // 更新显示
             document.getElementById('rewardSettingsList').innerHTML = renderRewardSettingsList();
             
+            // 🆕 同时更新积分页面的奖励显示
+            updateRewardPreview();
+            renderRewardListInPoints();
+            
             // 播放添加成功语音
             if (voiceReminder && voiceReminder.isEnabled) {
                 voiceReminder.speak(`新奖励"${name}"添加成功，达到${points}分即可获得`, 'settingConfirm', 1);
@@ -5398,6 +5578,10 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                 
                 // 更新显示
                 document.getElementById('rewardSettingsList').innerHTML = renderRewardSettingsList();
+                
+                // 🆕 同时更新积分页面的奖励显示
+                updateRewardPreview();
+                renderRewardListInPoints();
                 
                 console.log('🗑️ 奖励删除成功:', reward);
             }
@@ -5558,6 +5742,260 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                     `;
                 }
             }
+        }
+
+        /**
+         * 编辑奖励 - 打开编辑界面
+         * @param {string} rewardId - 要编辑的奖励ID
+         */
+        function editReward(rewardId) {
+            const reward = rewardSettings.find(r => r.id === rewardId);
+            if (!reward) {
+                alert('找不到要编辑的奖励！');
+                return;
+            }
+
+            // 创建编辑界面
+            const editModal = document.createElement('div');
+            editModal.className = 'edit-reward-modal';
+            editModal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                z-index: 10000;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                animation: fadeIn 0.3s ease-in-out;
+            `;
+
+            editModal.innerHTML = `
+                <div style="
+                    background: white;
+                    padding: 25px;
+                    border-radius: 15px;
+                    max-width: 400px;
+                    width: 90%;
+                    box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+                    animation: slideInUp 0.3s ease-out;
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="margin: 0; color: #333; font-size: 18px;">✏️ 编辑奖励</h3>
+                        <button onclick="closeEditReward()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">奖励名称：</label>
+                        <input type="text" id="editRewardName" value="${reward.rewardName}" style="
+                            width: 100%;
+                            padding: 10px;
+                            border: 2px solid #e0e0e0;
+                            border-radius: 8px;
+                            font-size: 14px;
+                            box-sizing: border-box;
+                        " placeholder="请输入奖励名称">
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">所需积分：</label>
+                        <input type="number" id="editRewardPoints" value="${reward.requiredPoints}" min="1" style="
+                            width: 100%;
+                            padding: 10px;
+                            border: 2px solid #e0e0e0;
+                            border-radius: 8px;
+                            font-size: 14px;
+                            box-sizing: border-box;
+                        " placeholder="请输入所需积分">
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">奖励描述：</label>
+                        <textarea id="editRewardDescription" style="
+                            width: 100%;
+                            padding: 10px;
+                            border: 2px solid #e0e0e0;
+                            border-radius: 8px;
+                            font-size: 14px;
+                            min-height: 60px;
+                            resize: vertical;
+                            box-sizing: border-box;
+                        " placeholder="请输入奖励描述（可选）">${reward.description || ''}</textarea>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="saveEditedReward('${rewardId}')" style="
+                            flex: 1;
+                            padding: 12px;
+                            background: #51cf66;
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            font-size: 16px;
+                            cursor: pointer;
+                            font-weight: bold;
+                        ">
+                            💾 保存修改
+                        </button>
+                        <button onclick="closeEditReward()" style="
+                            flex: 1;
+                            padding: 12px;
+                            background: #868e96;
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            font-size: 16px;
+                            cursor: pointer;
+                        ">
+                            取消
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(editModal);
+            
+            // 聚焦到名称输入框
+            setTimeout(() => {
+                document.getElementById('editRewardName').focus();
+            }, 100);
+            
+            console.log('✏️ 打开编辑奖励界面:', reward);
+        }
+
+        /**
+         * 保存编辑后的奖励
+         * @param {string} rewardId - 要保存的奖励ID
+         */
+        function saveEditedReward(rewardId) {
+            const nameInput = document.getElementById('editRewardName');
+            const pointsInput = document.getElementById('editRewardPoints');
+            const descriptionInput = document.getElementById('editRewardDescription');
+            
+            const name = nameInput.value.trim();
+            const points = parseInt(pointsInput.value);
+            const description = descriptionInput.value.trim();
+            
+            // 验证输入
+            if (!name) {
+                alert('请输入奖励名称！');
+                nameInput.focus();
+                return;
+            }
+            
+            if (!points || points <= 0) {
+                alert('请输入有效的积分数量（大于0）！');
+                pointsInput.focus();
+                return;
+            }
+            
+            // 检查是否与其他奖励的积分重复（排除当前编辑的奖励）
+            const existingReward = rewardSettings.find(r => r.id !== rewardId && r.requiredPoints === points);
+            if (existingReward) {
+                alert(`积分 ${points} 分已被奖励"${existingReward.rewardName}"使用，请使用不同的积分数量！`);
+                pointsInput.focus();
+                return;
+            }
+            
+            // 找到要编辑的奖励
+            const rewardIndex = rewardSettings.findIndex(r => r.id === rewardId);
+            if (rewardIndex === -1) {
+                alert('找不到要编辑的奖励！');
+                closeEditReward();
+                return;
+            }
+            
+            // 保存旧的信息用于提示
+            const oldReward = { ...rewardSettings[rewardIndex] };
+            
+            // 更新奖励信息
+            rewardSettings[rewardIndex] = {
+                ...rewardSettings[rewardIndex],
+                rewardName: name,
+                requiredPoints: points,
+                description: description,
+                updatedAt: new Date().toISOString()
+            };
+            
+            // 保存到本地存储
+            saveRewardData();
+            
+            // 更新奖励列表显示
+            document.getElementById('rewardSettingsList').innerHTML = renderRewardSettingsList();
+            
+            // 关闭编辑界面
+            closeEditReward();
+            
+            // 🆕 同时更新积分页面的奖励显示
+            updateRewardPreview();
+            renderRewardListInPoints();
+            
+            // 播放保存成功语音
+            if (voiceReminder && voiceReminder.isEnabled) {
+                voiceReminder.speak(`奖励"${name}"修改成功`, 'settingConfirm', 1);
+            }
+            
+            console.log('💾 奖励修改成功:', {
+                old: oldReward,
+                new: rewardSettings[rewardIndex]
+            });
+            
+            // 显示成功提示
+            showSuccessMessage(`🎉 奖励修改成功！\n"${oldReward.rewardName}" → "${name}"`);
+        }
+
+        /**
+         * 关闭编辑奖励界面
+         */
+        function closeEditReward() {
+            const editModal = document.querySelector('.edit-reward-modal');
+            if (editModal) {
+                editModal.style.animation = 'fadeOut 0.3s ease-in-out';
+                setTimeout(() => {
+                    editModal.remove();
+                }, 300);
+            }
+        }
+
+        /**
+         * 显示成功消息
+         * @param {string} message - 要显示的消息
+         */
+        function showSuccessMessage(message) {
+            // 创建成功提示
+            const successDiv = document.createElement('div');
+            successDiv.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: #51cf66;
+                color: white;
+                padding: 15px 25px;
+                border-radius: 10px;
+                font-size: 16px;
+                font-weight: bold;
+                z-index: 10001;
+                box-shadow: 0 4px 15px rgba(81, 207, 102, 0.3);
+                animation: bounceIn 0.5s ease-out;
+                text-align: center;
+                white-space: pre-line;
+            `;
+            successDiv.textContent = message;
+            
+            document.body.appendChild(successDiv);
+            
+            // 2秒后自动移除
+            setTimeout(() => {
+                successDiv.style.animation = 'fadeOut 0.3s ease-in-out';
+                setTimeout(() => {
+                    if (successDiv.parentNode) {
+                        successDiv.remove();
+                    }
+                }, 300);
+            }, 2000);
         }
 
         // 🆕 ==================== 奖励系统功能函数结束 ====================
