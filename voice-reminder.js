@@ -221,21 +221,34 @@ class VoiceReminder {
     }
 
     /**
-     * 初始化Service Worker通信
+     * 初始化Service Worker通信（支持本地文件环境）
      */
     initServiceWorker() {
+        // 检查当前环境
+        const isLocalFile = window.location.protocol === 'file:';
+        
+        if (isLocalFile) {
+            console.log('📁 本地文件环境，跳过Service Worker初始化');
+            this.serviceWorkerReady = false;
+            return;
+        }
+        
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.ready.then((registration) => {
                 this.serviceWorkerReady = true;
-                console.log('Service Worker ready for background reminders');
+                console.log('✅ Service Worker ready for background reminders');
                 
                 // 监听Service Worker消息
                 navigator.serviceWorker.addEventListener('message', (event) => {
                     this.handleServiceWorkerMessage(event.data);
                 });
             }).catch((error) => {
-                console.error('Service Worker not ready:', error);
+                console.error('❌ Service Worker not ready:', error);
+                this.serviceWorkerReady = false;
             });
+        } else {
+            console.warn('⚠️ Service Worker not supported');
+            this.serviceWorkerReady = false;
         }
     }
 
@@ -819,9 +832,9 @@ class VoiceReminder {
             }, delay);
 
             // Service Worker定时器（后台使用）
-            if (this.serviceWorkerReady) {
+            if (this.serviceWorkerReady && navigator.serviceWorker.controller) {
                 console.log('向Service Worker发送提醒安排');
-                navigator.serviceWorker.controller?.postMessage({
+                navigator.serviceWorker.controller.postMessage({
                     type: 'SCHEDULE_REMINDER',
                     reminder: {
                         id: `${reminderId}_start`,
@@ -832,7 +845,7 @@ class VoiceReminder {
                     }
                 });
             } else {
-                console.warn('Service Worker未准备就绪，无法设置后台提醒');
+                console.log('⚠️ Service Worker未准备就绪或为本地文件环境，跳过后台提醒设置');
             }
         }
 
@@ -857,8 +870,8 @@ class VoiceReminder {
             }, endDelay);
 
             // Service Worker定时器
-            if (this.serviceWorkerReady) {
-                navigator.serviceWorker.controller?.postMessage({
+            if (this.serviceWorkerReady && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
                     type: 'SCHEDULE_REMINDER',
                     reminder: {
                         id: `${reminderId}_end`,
@@ -868,6 +881,8 @@ class VoiceReminder {
                         type: 'studyEnd'
                     }
                 });
+            } else {
+                console.log('⚠️ Service Worker未准备就绪或为本地文件环境，跳过学习结束后台提醒设置');
             }
         }
 
@@ -1084,15 +1099,17 @@ class VoiceReminder {
             if (timerInfo.endTimer) clearTimeout(timerInfo.endTimer);
             
             // 清除Service Worker定时器
-            if (this.serviceWorkerReady) {
-                navigator.serviceWorker.controller?.postMessage({
+            if (this.serviceWorkerReady && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
                     type: 'CANCEL_REMINDER',
                     reminderId: `${reminderId}_start`
                 });
-                navigator.serviceWorker.controller?.postMessage({
+                navigator.serviceWorker.controller.postMessage({
                     type: 'CANCEL_REMINDER',
                     reminderId: `${reminderId}_end`
                 });
+            } else {
+                console.log('⚠️ Service Worker未准备就绪或为本地文件环境，跳过后台提醒清除');
             }
             
             this.timers.delete(reminderId);

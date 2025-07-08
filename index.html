@@ -1422,86 +1422,336 @@
             }
         }
 
-        // 带重试的Service Worker注册
-        function registerServiceWorkerWithRetry(retryCount = 0) {
-            console.log(`尝试注册Service Worker (第${retryCount + 1}次)...`);
+        // 🆕 智能 Service Worker 注册（支持本地文件）
+        function registerServiceWorkerWithRetry() {
+            // 检查当前协议
+            const currentProtocol = window.location.protocol;
+            const isLocalFile = currentProtocol === 'file:';
+            const isHTTPS = currentProtocol === 'https:';
+            const isHTTP = currentProtocol === 'http:';
             
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js').then((registration) => {
-                    console.log('Service Worker 注册成功:', registration);
-                    
-                    // 🆕 监听Service Worker消息（强制更新处理）
-                    navigator.serviceWorker.addEventListener('message', (event) => {
-                        console.log('收到Service Worker消息:', event.data);
-                        
-                        if (event.data.type === 'FORCE_UPDATE_AVAILABLE') {
-                            handleForceUpdate(event.data);
-                        } else if (event.data.type === 'CACHE_CLEANED') {
-                            console.log('✅ 缓存已清理，版本:', event.data.version);
-                            showUpdateNotification('缓存已更新到最新版本');
-                        } else if (event.data.type === 'CACHE_CLEARED') {
-                            console.log('✅ 强制缓存清除完成');
-                            showUpdateNotification('缓存清除完成，请刷新页面');
-                        } else if (event.data.type === 'REMINDER_TRIGGERED') {
-                            // 语音提醒处理
-                            if (!document.hidden && voiceReminder) {
-                                voiceReminder.playReminderFromServiceWorker(event.data.reminder);
-                            }
-                        }
-                    });
-                    
-                    // 检查是否有更新
-                    registration.addEventListener('updatefound', () => {
-                        console.log('发现Service Worker更新');
-                        const newWorker = registration.installing;
-                        
-                        newWorker.addEventListener('statechange', () => {
-                            if (newWorker.state === 'installed') {
-                                if (navigator.serviceWorker.controller) {
-                                    // 有新版本可用，强制更新
-                                    console.log('新版本可用，准备强制更新');
-                                    handleForceUpdate({
-                                        version: 'new',
-                                        message: '发现新版本，正在更新...'
-                                    });
-                                } else {
-                                    // 首次安装
-                                    console.log('PWA首次安装完成');
-                                }
-                            }
-                        });
-                    });
-                    
-                    // 等待Service Worker激活
-                    return navigator.serviceWorker.ready;
+            console.log('🌐 协议检测:', {
+                protocol: currentProtocol,
+                isLocalFile,
+                isHTTPS,
+                isHTTP,
+                host: window.location.host
+            });
+            
+            // 如果是本地文件，跳过 Service Worker 注册
+            if (isLocalFile) {
+                console.log('📁 检测到本地文件环境，跳过 Service Worker 注册');
+                showLocalFileNotice();
+                return Promise.resolve(false);
+            }
+            
+            // 检查 Service Worker 支持
+            if (!('serviceWorker' in navigator)) {
+                console.warn('⚠️ 浏览器不支持 Service Worker');
+                return Promise.resolve(false);
+            }
+            
+            let retryCount = 0;
+            const maxRetries = 3;
+            
+            const attemptRegistration = () => {
+                retryCount++;
+                console.log(`🔄 Service Worker 注册尝试 ${retryCount}/${maxRetries}`);
+                
+                return navigator.serviceWorker.register('/sw.js', {
+                    scope: '/'
                 }).then((registration) => {
-                    console.log('Service Worker 已准备就绪:', registration);
-                    
-                    // 🆕 检查版本并处理不一致
-                    checkVersionConsistency(registration);
-                    
-                    // 更新语音指示器状态
-                    if (voiceReminder) {
-                        voiceReminder.serviceWorkerReady = true;
-                        updateVoiceIndicator();
-                    }
-                    
+                    console.log('✅ Service Worker 注册成功:', registration.scope);
+                    return true;
                 }).catch((error) => {
-                    console.error('Service Worker 注册失败:', error);
+                    console.error(`💥 Service Worker 注册失败 (尝试 ${retryCount}):`, error);
                     
-                    // 重试机制（最多3次）
-                    if (retryCount < 2) {
-                        setTimeout(() => {
-                            registerServiceWorkerWithRetry(retryCount + 1);
-                        }, 2000);
+                    if (retryCount < maxRetries) {
+                        console.log(`⏳ 等待 ${retryCount * 1000}ms 后重试...`);
+                        return new Promise(resolve => {
+                            setTimeout(() => {
+                                attemptRegistration().then(resolve);
+                            }, retryCount * 1000);
+                        });
                     } else {
-                        console.error('Service Worker 注册失败，已达到最大重试次数');
-                        showUpdateNotification('Service Worker注册失败，某些功能可能不可用');
+                        console.error('❌ Service Worker 注册失败，已达到最大重试次数');
+                        return false;
                     }
                 });
+            };
+            
+            return attemptRegistration();
+        }
+
+        // 🆕 显示本地文件使用提示
+        function showLocalFileNotice() {
+            console.log('📋 显示本地文件使用提示');
+            
+            const notice = document.createElement('div');
+            notice.style.cssText = `
+                position: fixed;
+                top: 80px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: linear-gradient(135deg, #4ECDC4, #44A08D);
+                color: white;
+                padding: 12px 20px;
+                border-radius: 20px;
+                font-size: 13px;
+                font-weight: bold;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+                z-index: 10000;
+                max-width: 90%;
+                text-align: center;
+                animation: slideInStay 0.5s ease-out;
+            `;
+            
+            notice.innerHTML = `
+                📁 本地文件模式 - 基础功能正常<br>
+                <span style="font-size: 11px; opacity: 0.9;">
+                    部分高级功能受限，建议通过网页服务器访问
+                </span>
+            `;
+            
+            document.body.appendChild(notice);
+            
+            // 5秒后自动移除
+            setTimeout(() => {
+                if (notice && notice.parentNode) {
+                    notice.remove();
+                }
+            }, 5000);
+        }
+
+        // 🆕 本地文件环境语音激活优化
+        function activateVoiceForLocalFile() {
+            console.log('📁 本地文件环境语音激活...');
+            
+            if (!window.voiceReminder) {
+                console.warn('⚠️ 语音提醒系统未初始化');
+                return false;
+            }
+            
+            try {
+                // 本地文件环境的语音激活策略
+                const activationStrategies = [
+                    // 策略1：直接激活
+                    () => {
+                        console.log('🔧 本地策略1：直接激活');
+                        if (window.voiceReminder.activateSpeechSynthesis) {
+                            window.voiceReminder.activateSpeechSynthesis();
+                        }
+                    },
+                    
+                    // 策略2：iPhone 6专用激活
+                    () => {
+                        console.log('🔧 本地策略2：iPhone 6专用激活');
+                        const isIPhone6 = /iPhone OS 9_|iPhone OS 10_|iPhone OS 11_|iPhone OS 12_/.test(navigator.userAgent);
+                        if (isIPhone6 && window.voiceReminder.activateForIPhone6) {
+                            window.voiceReminder.activateForIPhone6();
+                        }
+                    },
+                    
+                    // 策略3：强制激活
+                    () => {
+                        console.log('🔧 本地策略3：强制激活');
+                        if (window.voiceReminder.speechSynthesis) {
+                            try {
+                                const testUtterance = new SpeechSynthesisUtterance('test');
+                                testUtterance.volume = 0.01;
+                                testUtterance.rate = 10;
+                                window.voiceReminder.speechSynthesis.speak(testUtterance);
+                            } catch (error) {
+                                console.warn('强制激活失败:', error);
+                            }
+                        }
+                    }
+                ];
+                
+                // 依次执行激活策略
+                activationStrategies.forEach((strategy, index) => {
+                    setTimeout(() => {
+                        try {
+                            strategy();
+                        } catch (error) {
+                            console.warn(`本地激活策略 ${index + 1} 失败:`, error);
+                        }
+                    }, index * 100);
+                });
+                
+                console.log('✅ 本地文件语音激活策略执行完成');
+                return true;
+                
+            } catch (error) {
+                console.error('💥 本地文件语音激活失败:', error);
+                return false;
+            }
+        }
+
+        // 🆕 优化的语音激活处理（支持本地文件）
+        function handleVoiceActivation() {
+            console.log('🎯 处理语音激活...');
+            
+            const isLocalFile = window.location.protocol === 'file:';
+            
+            if (isLocalFile) {
+                console.log('📁 本地文件环境，使用优化激活');
+                activateVoiceForLocalFile();
             } else {
-                console.warn('浏览器不支持Service Worker');
-                showUpdateNotification('浏览器不支持离线功能');
+                console.log('🌐 网络环境，使用标准激活');
+                if (window.voiceReminder && window.voiceReminder.activateSpeechSynthesis) {
+                    window.voiceReminder.activateSpeechSynthesis();
+                }
+            }
+            
+            // 移除激活提示
+            const activationTip = document.querySelector('.voice-activation-tip');
+            if (activationTip) {
+                activationTip.remove();
+                console.log('🚫 激活提示已移除');
+            }
+        }
+
+        // 🆕 环境检测和初始化
+        function detectEnvironmentAndInit() {
+            const isLocalFile = window.location.protocol === 'file:';
+            const isGitHubPages = window.location.hostname.includes('github.io');
+            const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            
+            console.log('🔍 环境检测结果:', {
+                isLocalFile,
+                isGitHubPages,
+                isLocalHost,
+                protocol: window.location.protocol,
+                hostname: window.location.hostname,
+                href: window.location.href
+            });
+            
+            // 根据环境提供不同的初始化策略
+            if (isLocalFile) {
+                console.log('📁 本地文件环境初始化');
+                initializeForLocalFile();
+            } else if (isGitHubPages) {
+                console.log('🐙 GitHub Pages环境初始化');
+                initializeForGitHubPages();
+            } else if (isLocalHost) {
+                console.log('🏠 本地服务器环境初始化');
+                initializeForLocalServer();
+            } else {
+                console.log('🌐 标准网络环境初始化');
+                initializeStandard();
+            }
+        }
+
+        // 🆕 本地文件环境初始化
+        function initializeForLocalFile() {
+            console.log('📁 执行本地文件专用初始化...');
+            
+            // 显示本地文件提示
+            showLocalFileNotice();
+            
+            // 跳过 Service Worker 注册
+            console.log('⏭️ 跳过 Service Worker 注册');
+            
+            // 使用本地文件优化的语音初始化
+            setTimeout(() => {
+                console.log('🔊 启动本地文件优化语音系统...');
+                initializeVoiceForLocalFile();
+            }, 800);
+        }
+
+        // 🆕 GitHub Pages环境初始化
+        function initializeForGitHubPages() {
+            console.log('🐙 执行GitHub Pages专用初始化...');
+            
+            // 注册 Service Worker
+            registerServiceWorkerWithRetry().then((success) => {
+                if (success) {
+                    console.log('✅ GitHub Pages Service Worker 注册成功');
+                } else {
+                    console.warn('⚠️ GitHub Pages Service Worker 注册失败');
+                }
+            });
+            
+            // 标准语音初始化
+            setTimeout(() => {
+                console.log('🔊 启动GitHub Pages语音系统...');
+                initializeVoiceReminderWithRetry();
+            }, 500);
+        }
+
+        // 🆕 本地服务器环境初始化
+        function initializeForLocalServer() {
+            console.log('🏠 执行本地服务器专用初始化...');
+            
+            // 尝试注册 Service Worker
+            registerServiceWorkerWithRetry();
+            
+            // 标准语音初始化
+            setTimeout(() => {
+                initializeVoiceReminderWithRetry();
+            }, 500);
+        }
+
+        // 🆕 标准网络环境初始化
+        function initializeStandard() {
+            console.log('🌐 执行标准网络环境初始化...');
+            
+            // 注册 Service Worker
+            registerServiceWorkerWithRetry();
+            
+            // 标准语音初始化
+            setTimeout(() => {
+                initializeVoiceReminderWithRetry();
+            }, 500);
+        }
+
+        // 🆕 本地文件专用语音初始化
+        function initializeVoiceForLocalFile() {
+            console.log('📁 本地文件专用语音初始化...');
+            
+            try {
+                // 创建语音提醒实例
+                window.voiceReminder = new VoiceReminder();
+                
+                // 等待初始化完成
+                setTimeout(() => {
+                    if (window.voiceReminder && window.voiceReminder.speechSynthesis) {
+                        console.log('✅ 本地文件语音系统初始化成功');
+                        
+                        // 更新语音指示器
+                        updateVoiceIndicator();
+                        
+                        // 设置语音提醒
+                        checkAndSetupVoiceReminders();
+                        
+                        // 本地文件专用欢迎语音
+                        setTimeout(() => {
+                            if (window.voiceReminder.isEnabled) {
+                                window.voiceReminder.speak('本地文件模式下，学习打卡系统已准备就绪', 'encouragement', 1);
+                            }
+                        }, 1000);
+                        
+                    } else {
+                        console.warn('⚠️ 本地文件语音系统初始化未完成');
+                        
+                        // 重试一次
+                        setTimeout(() => {
+                            if (!window.voiceReminder || !window.voiceReminder.speechSynthesis) {
+                                console.log('🔄 本地文件语音系统重试初始化...');
+                                initializeVoiceReminderWithRetry();
+                            }
+                        }, 2000);
+                    }
+                }, 1000);
+                
+            } catch (error) {
+                console.error('💥 本地文件语音初始化异常:', error);
+                
+                // 降级到标准初始化
+                setTimeout(() => {
+                    initializeVoiceReminderWithRetry();
+                }, 1000);
             }
         }
 
@@ -2283,12 +2533,12 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
         }
 
         // 在语音指示器上添加双击事件进行强制测试
-        document.addEventListener('DOMContentLoaded', function() {
-            const indicator = document.getElementById('voiceIndicator');
-            if (indicator) {
-                indicator.addEventListener('dblclick', forceVoiceTest);
-            }
-        });
+        // document.addEventListener('DOMContentLoaded', function() {
+        //     const indicator = document.getElementById('voiceIndicator');
+        //     if (indicator) {
+        //         indicator.addEventListener('dblclick', forceVoiceTest);
+        //     }
+        // });
 
         // 加载数据
         function loadData() {
@@ -3403,7 +3653,7 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
         }, 2000);
 
         // 初始化应用
-        document.addEventListener('DOMContentLoaded', init);
+        // document.addEventListener('DOMContentLoaded', init);
 
         /**
          * 测试刷新功能
@@ -4163,8 +4413,30 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
         }
 
         // DOMContentLoaded 事件处理 - iPhone 6专用版
+        // document.addEventListener('DOMContentLoaded', function() {
+        //     console.log('🚀 页面加载完成，开始iPhone 6专用初始化...');
+        //     
+        //     // 加载存储的数据
+        //     loadStudyData();
+        //     
+        //     // 渲染学习计划
+        //     renderStudyPlans();
+        //     
+        //     // 更新总积分
+        //     updateTotalPoints();
+        //     
+        //     // 🆕 使用强化版语音系统初始化
+        //     console.log('🔊 启动iPhone 6专用语音系统...');
+        //     setTimeout(() => {
+        //         initializeVoiceReminderWithRetry();
+        //     }, 500);
+        //     
+        //     console.log('✅ iPhone 6专用页面初始化完成');
+        // });
+
+        // DOMContentLoaded 事件处理 - 智能环境适配版
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 页面加载完成，开始iPhone 6专用初始化...');
+            console.log('🚀 页面加载完成，开始智能环境检测...');
             
             // 加载存储的数据
             loadStudyData();
@@ -4175,13 +4447,10 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
             // 更新总积分
             updateTotalPoints();
             
-            // 🆕 使用强化版语音系统初始化
-            console.log('🔊 启动iPhone 6专用语音系统...');
-            setTimeout(() => {
-                initializeVoiceReminderWithRetry();
-            }, 500);
+            // 🆕 智能环境检测和初始化
+            detectEnvironmentAndInit();
             
-            console.log('✅ iPhone 6专用页面初始化完成');
+            console.log('✅ 智能环境适配初始化完成');
         });
     </script>
 </body>
