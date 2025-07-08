@@ -1984,9 +1984,16 @@
             
             // 移除现有的语音指示器
             const existingIndicator = document.querySelector('#voiceReminderSettings');
+            const originalIndicator = document.querySelector('#voiceIndicator');
+            
             if (existingIndicator) {
                 existingIndicator.remove();
                 console.log('🗑️ 移除现有语音指示器');
+            }
+            
+            if (originalIndicator) {
+                originalIndicator.remove();
+                console.log('🗑️ 移除原始语音指示器');
             }
             
             // 检查语音提醒系统状态
@@ -2061,22 +2068,76 @@
                 e.stopPropagation();
                 
                 console.log('🎯 iPhone 6语音设置按钮被点击');
+                console.log('📊 事件详情:', {
+                    type: e.type,
+                    target: e.target,
+                    currentTarget: e.currentTarget,
+                    timestamp: Date.now()
+                });
                 
                 // 添加点击反馈
                 settingsButton.style.transform = 'scale(0.95)';
+                settingsButton.style.backgroundColor = 'rgba(102, 126, 234, 0.8)';
+                
                 setTimeout(() => {
                     settingsButton.style.transform = 'scale(1)';
+                    settingsButton.style.backgroundColor = '';
                 }, 150);
                 
                 // 播放点击反馈音
                 if (window.voiceReminder && window.voiceReminder.speechSynthesis) {
-                    window.voiceReminder.speak('正在打开语音设置', null, 1);
+                    console.log('🔊 播放点击反馈音');
+                    try {
+                        window.voiceReminder.speak('正在打开语音设置', null, 1);
+                    } catch (error) {
+                        console.error('播放点击反馈音失败:', error);
+                    }
+                } else {
+                    console.warn('⚠️ 语音系统不可用，跳过点击反馈音');
                 }
                 
                 // 调用设置界面
                 setTimeout(() => {
-                    toggleVoiceSettings();
+                    console.log('🔧 调用toggleVoiceSettings函数');
+                    try {
+                        toggleVoiceSettings();
+                    } catch (error) {
+                        console.error('💥 调用toggleVoiceSettings失败:', error);
+                        alert('打开语音设置失败: ' + error.message);
+                    }
                 }, 300);
+            }, { passive: false });
+            
+            // 添加右键事件用于调试
+            settingsButton.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                console.log('🖱️ 语音设置按钮右键被点击 - 显示调试信息');
+                
+                const debugInfo = `
+🔊 语音设置按钮调试信息
+
+📱 设备状态:
+• 语音引擎: ${hasVoiceReminder ? '✅ 可用' : '❌ 不可用'}
+• 语音启用: ${isEnabled ? '✅ 是' : '❌ 否'}
+• iPhone 6: ${isIPhone6 ? '✅ 是' : '❌ 否'}
+
+🎯 按钮状态:
+• 元素ID: voiceReminderSettings
+• 显示状态: ${settingsButton.style.display || 'block'}
+• 可见性: ${settingsButton.style.visibility || 'visible'}
+• 点击事件: 已绑定
+
+🔧 函数检查:
+• toggleVoiceSettings: ${typeof toggleVoiceSettings === 'function' ? '✅ 存在' : '❌ 不存在'}
+• createVoiceSettingsModal: ${typeof createVoiceSettingsModal === 'function' ? '✅ 存在' : '❌ 不存在'}
+
+💡 如果点击没有反应，请尝试：
+1. 刷新页面
+2. 检查浏览器控制台
+3. 使用不同浏览器
+                `;
+                
+                alert(debugInfo);
             });
             
             // 添加触摸事件处理（iPhone 6专用）
@@ -4045,6 +4106,7 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
             }
             
             // 创建新的模态界面
+            const isVoiceEnabled = window.voiceReminder ? window.voiceReminder.isEnabled : false;
             const modalHTML = `
                 <div id="voiceSettingsModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000;">
                     <div class="modal-content" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 10px; max-width: 90%; max-height: 90%; overflow-y: auto;">
@@ -4062,7 +4124,7 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                             <!-- 主开关 -->
                             <div style="margin-bottom: 20px;">
                                 <label style="display: flex; align-items: center; font-size: 16px; font-weight: bold;">
-                                    <input type="checkbox" id="voiceEnabled" ${window.voiceReminder ? window.voiceReminder.isEnabled : false} style="margin-right: 10px; width: 20px; height: 20px;">
+                                    <input type="checkbox" id="voiceEnabled" ${isVoiceEnabled ? 'checked' : ''} style="margin-right: 10px; width: 20px; height: 20px;">
                                     启用语音提醒
                                 </label>
                             </div>
@@ -4439,10 +4501,10 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
             console.log('🚀 页面加载完成，开始智能环境检测...');
             
             // 加载存储的数据
-            loadStudyData();
+            loadData();
             
-            // 渲染学习计划
-            renderStudyPlans();
+            // 更新学习计划显示
+            updateStudyDisplay();
             
             // 更新总积分
             updateTotalPoints();
@@ -4450,8 +4512,56 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
             // 🆕 智能环境检测和初始化
             detectEnvironmentAndInit();
             
+            // 🆕 延迟测试语音设置按钮
+            setTimeout(() => {
+                console.log('🧪 测试语音设置按钮...');
+                const voiceButton = document.querySelector('#voiceReminderSettings');
+                if (voiceButton) {
+                    console.log('✅ 语音设置按钮存在:', voiceButton);
+                } else {
+                    console.warn('⚠️ 语音设置按钮未找到，尝试重新创建...');
+                    if (typeof updateVoiceIndicator === 'function') {
+                        updateVoiceIndicator();
+                    }
+                }
+            }, 3000);
+            
             console.log('✅ 智能环境适配初始化完成');
         });
+
+        // 🆕 检查并设置语音提醒
+        function checkAndSetupVoiceReminders() {
+            console.log('🔧 检查并设置语音提醒...');
+            
+            try {
+                // 检查语音提醒系统是否可用
+                if (!window.voiceReminder || !window.voiceReminder.speechSynthesis) {
+                    console.warn('⚠️ 语音提醒系统不可用，跳过设置');
+                    return false;
+                }
+                
+                // 检查是否有学习数据
+                if (!window.studyData || !window.currentStudyDate) {
+                    console.log('ℹ️ 学习数据不可用，跳过语音提醒设置');
+                    return false;
+                }
+                
+                // 更新所有任务提醒
+                if (typeof window.voiceReminder.updateAllTaskReminders === 'function') {
+                    console.log('📝 更新所有任务的语音提醒...');
+                    window.voiceReminder.updateAllTaskReminders(window.studyData, window.currentStudyDate);
+                    console.log('✅ 语音提醒设置完成');
+                    return true;
+                } else {
+                    console.warn('⚠️ updateAllTaskReminders方法不存在');
+                    return false;
+                }
+                
+            } catch (error) {
+                console.error('💥 设置语音提醒失败:', error);
+                return false;
+            }
+        }
     </script>
 </body>
 </html> 
