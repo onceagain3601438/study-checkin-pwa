@@ -991,6 +991,28 @@
             <h3 style="margin-bottom: 10px; font-size: 14px;">积分历史</h3>
             <div id="pointsHistoryList"></div>
         </div>
+
+        <!-- 🆕 奖励系统区域 -->
+        <div style="background: white; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);">
+            <h3 style="margin-bottom: 15px; font-size: 14px;">🎁 积分奖励系统</h3>
+            <button onclick="showRewardSettings()" style="
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: white;
+                border: none;
+                padding: 15px;
+                border-radius: 15px;
+                font-weight: bold;
+                cursor: pointer;
+                font-size: 16px;
+                width: 100%;
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            ">
+                ⚙️ 设置积分奖励
+            </button>
+            <div id="nextRewardPreview" style="margin-top: 15px; padding: 12px; background: #f8f9ff; border-radius: 10px; font-size: 13px; color: #666;">
+                正在加载奖励信息...
+            </div>
+        </div>
     </div>
 
     <!-- 模板页面 -->
@@ -1066,6 +1088,11 @@
         let currentPage = 'calendar';
         let voiceReminder = null; // 🆕 语音提醒对象全局变量
         
+        // 🆕 奖励系统变量
+        let rewardSettings = []; // 奖励设置数组
+        let claimedRewards = []; // 已领取的奖励记录
+        let lastTotalPoints = 0; // 上次检查时的总积分，用于检测积分增长
+        
         // 日期格式化
         function getDateKey(date) {
             return date.toISOString().split('T')[0];
@@ -1095,6 +1122,10 @@
             updateCalendarDisplay();
             updateStudyDisplay();
             updatePointsDisplay();
+            
+            // 🆕 初始化奖励系统
+            loadRewardData();
+            updateRewardPreview();
             
             console.log('开始初始化语音提醒系统...');
             
@@ -2673,6 +2704,8 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                 }
             }
             
+            // 保存之前的积分
+            const previousTotalPoints = totalPoints;
             totalPoints = calculatedTotal;
             
             // 更新所有显示
@@ -2680,6 +2713,19 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
             document.getElementById('totalPointsStudy').textContent = totalPoints;
             document.getElementById('totalPointsCenter').textContent = totalPoints;
             document.getElementById('totalPointsDisplay').textContent = totalPoints;
+            
+            // 🆕 检查奖励达成情况（只有积分增长时才检查）
+            if (totalPoints > previousTotalPoints) {
+                checkAndTriggerRewards(previousTotalPoints, totalPoints);
+            }
+            
+            // 🆕 播放积分变化语音提醒
+            if (voiceReminder && voiceReminder.isEnabled && totalPoints !== previousTotalPoints) {
+                const pointsDiff = totalPoints - previousTotalPoints;
+                if (pointsDiff > 0) {
+                    voiceReminder.speak(`积分增加${pointsDiff}分，当前总积分${totalPoints}分`, 'encouragement', 1);
+                }
+            }
         }
 
         // 获取日期键
@@ -3261,6 +3307,9 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
             }
             
             document.getElementById('monthPointsCenter').textContent = monthPoints;
+            
+            // 🆕 更新奖励预览
+            updateRewardPreview();
         }
 
         // 模态框点击外部关闭
@@ -4834,6 +4883,684 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                 alert('❌ 重新设置提醒失败: ' + error.message);
             }
         }
+
+        // 🆕 ==================== 奖励系统功能函数 ====================
+
+        /**
+         * 检查并触发奖励
+         * @param {number} previousPoints - 之前的积分
+         * @param {number} currentPoints - 当前积分
+         */
+        function checkAndTriggerRewards(previousPoints, currentPoints) {
+            console.log(`🎁 检查奖励达成情况: ${previousPoints} → ${currentPoints}`);
+            
+            // 找到新达成的奖励
+            const newRewards = rewardSettings.filter(reward => {
+                return reward.requiredPoints > previousPoints && 
+                       reward.requiredPoints <= currentPoints &&
+                       !isRewardClaimed(reward.id);
+            });
+            
+            // 按积分要求排序
+            newRewards.sort((a, b) => a.requiredPoints - b.requiredPoints);
+            
+            // 依次显示奖励弹窗
+            newRewards.forEach((reward, index) => {
+                setTimeout(() => {
+                    showRewardPopup(reward);
+                    
+                    // 播放奖励达成语音
+                    if (voiceReminder && voiceReminder.isEnabled) {
+                        voiceReminder.speak(`恭喜！达到${reward.requiredPoints}积分，获得奖励：${reward.rewardName}`, 'encouragement');
+                    }
+                }, index * 1000); // 每个奖励间隔1秒显示
+            });
+            
+            console.log(`🎉 找到 ${newRewards.length} 个新奖励`);
+        }
+
+        /**
+         * 检查奖励是否已领取
+         * @param {string} rewardId - 奖励ID
+         * @returns {boolean}
+         */
+        function isRewardClaimed(rewardId) {
+            return claimedRewards.some(claimed => claimed.rewardId === rewardId);
+        }
+
+        /**
+         * 显示奖励弹窗
+         * @param {Object} reward - 奖励对象
+         */
+        function showRewardPopup(reward) {
+            const popup = document.createElement('div');
+            popup.className = 'reward-popup-overlay';
+            popup.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 10000;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                animation: fadeIn 0.3s ease-in-out;
+            `;
+            
+            popup.innerHTML = `
+                <div class="reward-popup" style="
+                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    color: white;
+                    padding: 30px;
+                    border-radius: 20px;
+                    text-align: center;
+                    max-width: 400px;
+                    width: 90%;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+                    transform: scale(0.8);
+                    animation: popupShow 0.3s ease-out forwards;
+                ">
+                    <div style="font-size: 48px; margin-bottom: 15px;">🎉</div>
+                    <h2 style="margin: 0 0 10px 0; font-size: 24px;">恭喜获得奖励！</h2>
+                    <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 15px; margin: 20px 0;">
+                        <div style="font-size: 16px; margin-bottom: 8px;">达成积分：<strong>${reward.requiredPoints}分</strong></div>
+                        <div style="font-size: 18px; font-weight: bold; color: #FFD700;">🏆 ${reward.rewardName}</div>
+                        ${reward.description ? `<div style="font-size: 14px; margin-top: 8px; opacity: 0.9;">${reward.description}</div>` : ''}
+                    </div>
+                    <div style="display: flex; gap: 15px; justify-content: center;">
+                        <button onclick="claimReward('${reward.id}', this.parentElement.parentElement.parentElement)" 
+                                style="
+                                    background: linear-gradient(135deg, #51cf66, #69db7c);
+                                    color: white;
+                                    border: none;
+                                    padding: 12px 25px;
+                                    border-radius: 25px;
+                                    font-weight: bold;
+                                    cursor: pointer;
+                                    font-size: 16px;
+                                    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                                    transition: all 0.3s ease;
+                                " 
+                                onmouseover="this.style.transform='scale(1.05)'" 
+                                onmouseout="this.style.transform='scale(1)'">
+                            🎁 领取奖励
+                        </button>
+                        <button onclick="closeRewardPopup(this.parentElement.parentElement.parentElement)" 
+                                style="
+                                    background: rgba(255,255,255,0.2);
+                                    color: white;
+                                    border: 2px solid rgba(255,255,255,0.3);
+                                    padding: 12px 25px;
+                                    border-radius: 25px;
+                                    font-weight: bold;
+                                    cursor: pointer;
+                                    font-size: 16px;
+                                    transition: all 0.3s ease;
+                                " 
+                                onmouseover="this.style.background='rgba(255,255,255,0.3)'" 
+                                onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                            稍后领取
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(popup);
+            
+            // 添加动画样式
+            if (!document.querySelector('#rewardPopupStyle')) {
+                const style = document.createElement('style');
+                style.id = 'rewardPopupStyle';
+                style.textContent = `
+                    @keyframes fadeIn {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    @keyframes popupShow {
+                        from { 
+                            transform: scale(0.8) translateY(20px);
+                            opacity: 0;
+                        }
+                        to { 
+                            transform: scale(1) translateY(0);
+                            opacity: 1;
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+
+        /**
+         * 领取奖励
+         * @param {string} rewardId - 奖励ID
+         * @param {HTMLElement} popupElement - 弹窗元素
+         */
+        function claimReward(rewardId, popupElement) {
+            const reward = rewardSettings.find(r => r.id === rewardId);
+            if (!reward) return;
+            
+            // 记录已领取的奖励
+            const claimedReward = {
+                rewardId: rewardId,
+                claimedAt: new Date().toISOString(),
+                requiredPoints: reward.requiredPoints,
+                rewardName: reward.rewardName
+            };
+            
+            claimedRewards.push(claimedReward);
+            saveRewardData();
+            
+            // 显示领取成功提示
+            popupElement.querySelector('.reward-popup').innerHTML = `
+                <div style="font-size: 48px; margin-bottom: 15px;">✅</div>
+                <h2 style="margin: 0 0 20px 0; font-size: 24px;">奖励领取成功！</h2>
+                <div style="font-size: 16px; opacity: 0.9; margin-bottom: 25px;">
+                    "${reward.rewardName}" 已添加到您的奖励记录中
+                </div>
+                <button onclick="closeRewardPopup(this.parentElement.parentElement)" 
+                        style="
+                            background: linear-gradient(135deg, #51cf66, #69db7c);
+                            color: white;
+                            border: none;
+                            padding: 12px 30px;
+                            border-radius: 25px;
+                            font-weight: bold;
+                            cursor: pointer;
+                            font-size: 16px;
+                            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                        ">
+                    确定
+                </button>
+            `;
+            
+            // 播放领取成功语音
+            if (voiceReminder && voiceReminder.isEnabled) {
+                voiceReminder.speak(`奖励"${reward.rewardName}"领取成功！`, 'encouragement', 1);
+            }
+            
+            // 3秒后自动关闭
+            setTimeout(() => {
+                closeRewardPopup(popupElement);
+            }, 3000);
+            
+            console.log('🎁 奖励领取成功:', claimedReward);
+        }
+
+        /**
+         * 关闭奖励弹窗
+         * @param {HTMLElement} popupElement - 弹窗元素
+         */
+        function closeRewardPopup(popupElement) {
+            popupElement.style.animation = 'fadeOut 0.3s ease-in-out';
+            setTimeout(() => {
+                if (popupElement && popupElement.parentNode) {
+                    popupElement.remove();
+                }
+            }, 300);
+            
+            // 添加fadeOut动画
+            if (!document.querySelector('#rewardPopupFadeOut')) {
+                const style = document.createElement('style');
+                style.id = 'rewardPopupFadeOut';
+                style.textContent = `
+                    @keyframes fadeOut {
+                        from { opacity: 1; }
+                        to { opacity: 0; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+
+        /**
+         * 显示奖励设置界面
+         */
+        function showRewardSettings() {
+            const modal = document.createElement('div');
+            modal.className = 'reward-settings-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 9999;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                animation: fadeIn 0.3s ease-in-out;
+            `;
+            
+            modal.innerHTML = `
+                <div class="reward-settings-content" style="
+                    background: white;
+                    border-radius: 20px;
+                    padding: 25px;
+                    max-width: 600px;
+                    width: 90%;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2 style="margin: 0; color: #333; font-size: 24px;">🎁 积分奖励设置</h2>
+                        <button onclick="closeRewardSettings()" style="
+                            background: none;
+                            border: none;
+                            font-size: 24px;
+                            cursor: pointer;
+                            color: #999;
+                        ">✕</button>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="color: #666; font-size: 16px; margin-bottom: 15px;">添加新奖励</h3>
+                        <div style="display: grid; gap: 15px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">所需积分：</label>
+                                <input type="number" id="newRewardPoints" placeholder="例如：100" min="1" style="
+                                    width: 100%;
+                                    padding: 12px;
+                                    border: 2px solid #e0e0e0;
+                                    border-radius: 10px;
+                                    font-size: 16px;
+                                    outline: none;
+                                    transition: border-color 0.3s ease;
+                                " onfocus="this.style.borderColor='#667eea'" onblur="this.style.borderColor='#e0e0e0'">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">奖励名称：</label>
+                                <input type="text" id="newRewardName" placeholder="例如：一个小礼品" style="
+                                    width: 100%;
+                                    padding: 12px;
+                                    border: 2px solid #e0e0e0;
+                                    border-radius: 10px;
+                                    font-size: 16px;
+                                    outline: none;
+                                    transition: border-color 0.3s ease;
+                                " onfocus="this.style.borderColor='#667eea'" onblur="this.style.borderColor='#e0e0e0'">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">描述（可选）：</label>
+                                <input type="text" id="newRewardDescription" placeholder="例如：你最喜欢的零食" style="
+                                    width: 100%;
+                                    padding: 12px;
+                                    border: 2px solid #e0e0e0;
+                                    border-radius: 10px;
+                                    font-size: 16px;
+                                    outline: none;
+                                    transition: border-color 0.3s ease;
+                                " onfocus="this.style.borderColor='#667eea'" onblur="this.style.borderColor='#e0e0e0'">
+                            </div>
+                            <button onclick="addNewReward()" style="
+                                background: linear-gradient(135deg, #667eea, #764ba2);
+                                color: white;
+                                border: none;
+                                padding: 12px 20px;
+                                border-radius: 10px;
+                                font-weight: bold;
+                                cursor: pointer;
+                                font-size: 16px;
+                                transition: transform 0.2s ease;
+                            " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                                ➕ 添加奖励
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 style="color: #666; font-size: 16px; margin-bottom: 15px;">当前奖励设置</h3>
+                        <div id="rewardSettingsList" style="max-height: 300px; overflow-y: auto;">
+                            ${renderRewardSettingsList()}
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                        <h3 style="color: #666; font-size: 16px; margin-bottom: 15px;">已领取奖励记录</h3>
+                        <div id="claimedRewardsList" style="max-height: 200px; overflow-y: auto;">
+                            ${renderClaimedRewardsList()}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        /**
+         * 渲染奖励设置列表
+         */
+        function renderRewardSettingsList() {
+            if (rewardSettings.length === 0) {
+                return '<div style="text-align: center; color: #999; padding: 20px;">暂无奖励设置，快来添加第一个奖励吧！</div>';
+            }
+            
+            const sortedRewards = [...rewardSettings].sort((a, b) => a.requiredPoints - b.requiredPoints);
+            
+            return sortedRewards.map(reward => `
+                <div style="
+                    background: linear-gradient(135deg, #f8f9ff, #e8eaff);
+                    padding: 15px;
+                    border-radius: 15px;
+                    margin-bottom: 10px;
+                    border: 2px solid ${totalPoints >= reward.requiredPoints ? '#51cf66' : '#e0e0e0'};
+                    position: relative;
+                ">
+                    ${totalPoints >= reward.requiredPoints ? '<div style="position: absolute; top: 10px; right: 15px; color: #51cf66; font-size: 20px;">✅</div>' : ''}
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div style="flex: 1;">
+                            <div style="font-weight: bold; font-size: 16px; color: #333; margin-bottom: 5px;">
+                                🏆 ${reward.rewardName}
+                            </div>
+                            <div style="color: #666; font-size: 14px; margin-bottom: 5px;">
+                                所需积分：${reward.requiredPoints}分
+                            </div>
+                            ${reward.description ? `<div style="color: #888; font-size: 13px;">${reward.description}</div>` : ''}
+                            <div style="margin-top: 8px;">
+                                <span style="
+                                    background: ${totalPoints >= reward.requiredPoints ? '#51cf66' : '#667eea'};
+                                    color: white;
+                                    padding: 4px 12px;
+                                    border-radius: 15px;
+                                    font-size: 12px;
+                                    font-weight: bold;
+                                ">
+                                    ${totalPoints >= reward.requiredPoints ? '已达成' : `还需 ${reward.requiredPoints - totalPoints} 分`}
+                                </span>
+                                ${isRewardClaimed(reward.id) ? '<span style="background: #ffa726; color: white; padding: 4px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; margin-left: 8px;">已领取</span>' : ''}
+                            </div>
+                        </div>
+                        <button onclick="deleteReward('${reward.id}')" style="
+                            background: #ff6b6b;
+                            color: white;
+                            border: none;
+                            padding: 8px 12px;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            font-size: 14px;
+                            margin-left: 15px;
+                        " title="删除此奖励">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        /**
+         * 渲染已领取奖励列表
+         */
+        function renderClaimedRewardsList() {
+            if (claimedRewards.length === 0) {
+                return '<div style="text-align: center; color: #999; padding: 20px;">还没有领取过任何奖励</div>';
+            }
+            
+            const sortedClaimed = [...claimedRewards].sort((a, b) => new Date(b.claimedAt) - new Date(a.claimedAt));
+            
+            return sortedClaimed.map(claimed => `
+                <div style="
+                    background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+                    padding: 12px 15px;
+                    border-radius: 12px;
+                    margin-bottom: 8px;
+                    border-left: 4px solid #ffa726;
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-weight: bold; color: #333; font-size: 15px;">
+                                🎁 ${claimed.rewardName}
+                            </div>
+                            <div style="color: #666; font-size: 13px;">
+                                ${claimed.requiredPoints}分 • ${new Date(claimed.claimedAt).toLocaleString('zh-CN')}
+                            </div>
+                        </div>
+                        <div style="color: #ffa726; font-size: 18px;">✨</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        /**
+         * 添加新奖励
+         */
+        function addNewReward() {
+            const pointsInput = document.getElementById('newRewardPoints');
+            const nameInput = document.getElementById('newRewardName');
+            const descriptionInput = document.getElementById('newRewardDescription');
+            
+            const points = parseInt(pointsInput.value);
+            const name = nameInput.value.trim();
+            const description = descriptionInput.value.trim();
+            
+            // 验证输入
+            if (!points || points <= 0) {
+                alert('请输入有效的积分数量（大于0）');
+                pointsInput.focus();
+                return;
+            }
+            
+            if (!name) {
+                alert('请输入奖励名称');
+                nameInput.focus();
+                return;
+            }
+            
+            // 检查是否已存在相同积分的奖励
+            if (rewardSettings.some(reward => reward.requiredPoints === points)) {
+                alert(`积分 ${points} 分已存在奖励设置，请使用不同的积分数量`);
+                pointsInput.focus();
+                return;
+            }
+            
+            // 创建新奖励
+            const newReward = {
+                id: Date.now().toString(),
+                requiredPoints: points,
+                rewardName: name,
+                description: description,
+                createdAt: new Date().toISOString()
+            };
+            
+            rewardSettings.push(newReward);
+            saveRewardData();
+            
+            // 清空输入框
+            pointsInput.value = '';
+            nameInput.value = '';
+            descriptionInput.value = '';
+            
+            // 更新显示
+            document.getElementById('rewardSettingsList').innerHTML = renderRewardSettingsList();
+            
+            // 播放添加成功语音
+            if (voiceReminder && voiceReminder.isEnabled) {
+                voiceReminder.speak(`新奖励"${name}"添加成功，达到${points}分即可获得`, 'settingConfirm', 1);
+            }
+            
+            console.log('🎁 新奖励添加成功:', newReward);
+        }
+
+        /**
+         * 删除奖励
+         * @param {string} rewardId - 奖励ID
+         */
+        function deleteReward(rewardId) {
+            const reward = rewardSettings.find(r => r.id === rewardId);
+            if (!reward) return;
+            
+            if (confirm(`确定要删除奖励"${reward.rewardName}"吗？\n\n⚠️ 此操作无法撤销！`)) {
+                rewardSettings = rewardSettings.filter(r => r.id !== rewardId);
+                saveRewardData();
+                
+                // 更新显示
+                document.getElementById('rewardSettingsList').innerHTML = renderRewardSettingsList();
+                
+                console.log('🗑️ 奖励删除成功:', reward);
+            }
+        }
+
+        /**
+         * 关闭奖励设置界面
+         */
+        function closeRewardSettings() {
+            const modal = document.querySelector('.reward-settings-modal');
+            if (modal) {
+                modal.style.animation = 'fadeOut 0.3s ease-in-out';
+                setTimeout(() => {
+                    modal.remove();
+                }, 300);
+            }
+        }
+
+        /**
+         * 保存奖励数据到本地存储
+         */
+        function saveRewardData() {
+            localStorage.setItem('rewardSettings', JSON.stringify(rewardSettings));
+            localStorage.setItem('claimedRewards', JSON.stringify(claimedRewards));
+            console.log('💾 奖励数据已保存');
+        }
+
+        /**
+         * 从本地存储加载奖励数据
+         */
+        function loadRewardData() {
+            try {
+                const savedRewardSettings = localStorage.getItem('rewardSettings');
+                const savedClaimedRewards = localStorage.getItem('claimedRewards');
+                
+                if (savedRewardSettings) {
+                    rewardSettings = JSON.parse(savedRewardSettings);
+                    console.log('📥 奖励设置已加载:', rewardSettings.length, '个奖励');
+                }
+                
+                if (savedClaimedRewards) {
+                    claimedRewards = JSON.parse(savedClaimedRewards);
+                    console.log('📥 已领取奖励记录已加载:', claimedRewards.length, '个记录');
+                }
+                
+                // 初始化默认奖励（仅在首次使用时）
+                if (rewardSettings.length === 0) {
+                    initializeDefaultRewards();
+                }
+                
+            } catch (error) {
+                console.error('❌ 加载奖励数据失败:', error);
+                rewardSettings = [];
+                claimedRewards = [];
+                initializeDefaultRewards();
+            }
+        }
+
+        /**
+         * 初始化默认奖励设置
+         */
+        function initializeDefaultRewards() {
+            const defaultRewards = [
+                {
+                    id: 'default_100',
+                    requiredPoints: 100,
+                    rewardName: '第一个小目标',
+                    description: '选择一个你喜欢的小礼品奖励自己',
+                    createdAt: new Date().toISOString()
+                },
+                {
+                    id: 'default_300',
+                    requiredPoints: 300,
+                    rewardName: '学习小达人',
+                    description: '一顿美味的大餐或者心仪的文具',
+                    createdAt: new Date().toISOString()
+                },
+                {
+                    id: 'default_500',
+                    requiredPoints: 500,
+                    rewardName: '坚持不懈奖',
+                    description: '一本你想要的书或者一件衣服',
+                    createdAt: new Date().toISOString()
+                },
+                {
+                    id: 'default_1000',
+                    requiredPoints: 1000,
+                    rewardName: '学习大师',
+                    description: '一次小旅行或者一个大一点的愿望',
+                    createdAt: new Date().toISOString()
+                }
+            ];
+            
+            rewardSettings = defaultRewards;
+            saveRewardData();
+            
+            console.log('🎁 默认奖励设置已初始化');
+        }
+
+        /**
+         * 更新奖励预览显示
+         */
+        function updateRewardPreview() {
+            const previewElement = document.getElementById('nextRewardPreview');
+            if (!previewElement) return;
+            
+            // 找到下一个未达成的奖励
+            const unclaimedRewards = rewardSettings
+                .filter(reward => !isRewardClaimed(reward.id))
+                .sort((a, b) => a.requiredPoints - b.requiredPoints);
+            
+            const nextReward = unclaimedRewards.find(reward => reward.requiredPoints > totalPoints);
+            
+            if (nextReward) {
+                const progress = Math.min((totalPoints / nextReward.requiredPoints) * 100, 100);
+                const remaining = nextReward.requiredPoints - totalPoints;
+                
+                previewElement.innerHTML = `
+                    <div style="margin-bottom: 8px; font-weight: bold; color: #333;">
+                        🎯 下一个目标：${nextReward.rewardName}
+                    </div>
+                    <div style="margin-bottom: 8px; color: #666;">
+                        还需 ${remaining} 积分（${nextReward.requiredPoints}分）
+                    </div>
+                    <div style="background: #e0e6ff; border-radius: 10px; height: 8px; overflow: hidden; margin-bottom: 5px;">
+                        <div style="
+                            background: linear-gradient(135deg, #667eea, #764ba2);
+                            height: 100%;
+                            width: ${progress}%;
+                            transition: width 0.3s ease;
+                        "></div>
+                    </div>
+                    <div style="font-size: 12px; color: #888;">
+                        进度：${Math.round(progress)}%
+                    </div>
+                `;
+            } else {
+                // 检查是否有已达成但未领取的奖励
+                const unclaimedAchieved = unclaimedRewards.filter(reward => reward.requiredPoints <= totalPoints);
+                
+                if (unclaimedAchieved.length > 0) {
+                    previewElement.innerHTML = `
+                        <div style="color: #51cf66; font-weight: bold; margin-bottom: 8px;">
+                            🎉 恭喜！您有 ${unclaimedAchieved.length} 个奖励可以领取
+                        </div>
+                        <div style="color: #666; font-size: 12px;">
+                            点击"设置积分奖励"查看详情
+                        </div>
+                    `;
+                } else {
+                    previewElement.innerHTML = `
+                        <div style="color: #51cf66; font-weight: bold; margin-bottom: 8px;">
+                            🏆 太棒了！您已经达成了所有奖励目标
+                        </div>
+                        <div style="color: #666; font-size: 12px;">
+                            可以添加新的奖励目标继续激励自己
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // 🆕 ==================== 奖励系统功能函数结束 ====================
     </script>
 </body>
 </html> 
