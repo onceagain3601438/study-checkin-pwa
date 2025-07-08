@@ -588,6 +588,745 @@ class VoiceReminder {
             this.showNotification('语音提醒', text);
         }
     }
+
+    /**
+     * 显示通知
+     */
+    showNotification(title, message) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(title, {
+                body: message,
+                icon: 'icons/icon-192x192.png'
+            });
+        }
+    }
+
+    /**
+     * 清除任务提醒
+     */
+    clearTaskReminder(reminderId) {
+        console.log('🗑️ 清除任务提醒:', reminderId);
+        
+        if (this.timers.has(reminderId)) {
+            const timerInfo = this.timers.get(reminderId);
+            
+            // 清除本地定时器
+            if (timerInfo.startTimer) {
+                clearTimeout(timerInfo.startTimer);
+            }
+            if (timerInfo.endTimer) {
+                clearTimeout(timerInfo.endTimer);
+            }
+            
+            // 清除Service Worker定时器
+            if (this.serviceWorkerReady && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'CANCEL_REMINDER',
+                    reminderId: `${reminderId}_start`
+                });
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'CANCEL_REMINDER',
+                    reminderId: `${reminderId}_end`
+                });
+            } else {
+                console.log('⚠️ Service Worker未准备就绪或为本地文件环境，跳过后台提醒清除');
+            }
+            
+            this.timers.delete(reminderId);
+            console.log('✅ 任务提醒已清除');
+        }
+    }
+
+    /**
+     * 启动时间监控
+     */
+    startTimeMonitoring() {
+        console.log('⏰ 启动时间监控...');
+        
+        // 每分钟检查一次当前时间
+        setInterval(() => {
+            this.checkCurrentTime();
+        }, 60000); // 60秒
+        
+        // 立即检查一次
+        this.checkCurrentTime();
+    }
+
+    /**
+     * 检查当前时间
+     */
+    checkCurrentTime() {
+        if (!this.isEnabled) return;
+        
+        const now = new Date();
+        const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        
+        // 每10分钟记录一次（避免日志过多）
+        if (now.getMinutes() % 10 === 0) {
+            console.log('🕐 时间检查:', currentTime);
+        }
+    }
+
+    /**
+     * 更新所有任务提醒
+     */
+    updateAllTaskReminders(studyData, currentDate) {
+        console.log('🔄 更新所有任务提醒...');
+        
+        // 清除所有现有提醒
+        this.clearAllReminders();
+        
+        if (!this.isEnabled) {
+            console.log('⚠️ 语音提醒已禁用，跳过更新');
+            return;
+        }
+
+        const dateKey = this.getDateKey(currentDate);
+        const plans = studyData[dateKey] || [];
+        
+        console.log(`📅 处理 ${dateKey} 的学习计划，共 ${plans.length} 个计划`);
+        
+        let reminderCount = 0;
+        plans.forEach(plan => {
+            plan.tasks.forEach(task => {
+                if (task.timeSlot) {
+                    console.log(`⏰ 为任务 "${task.name}" 设置提醒，时间段: ${task.timeSlot}`);
+                    this.setTaskReminder(task, plan.name);
+                    reminderCount++;
+                }
+            });
+        });
+        
+        console.log(`✅ 已设置 ${reminderCount} 个时间节点提醒`);
+    }
+
+    /**
+     * 获取日期键
+     */
+    getDateKey(date) {
+        return date.toISOString().split('T')[0];
+    }
+
+    /**
+     * 清除所有提醒
+     */
+    clearAllReminders() {
+        console.log('🗑️ 清除所有提醒...');
+        
+        // 清除所有本地定时器
+        for (const [reminderId, timerInfo] of this.timers) {
+            if (timerInfo.startTimer) {
+                clearTimeout(timerInfo.startTimer);
+            }
+            if (timerInfo.endTimer) {
+                clearTimeout(timerInfo.endTimer);
+            }
+        }
+        
+        // 清空定时器Map
+        this.timers.clear();
+        
+        // 通知Service Worker清除所有提醒
+        if (this.serviceWorkerReady && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+                type: 'CLEAR_ALL_REMINDERS'
+            });
+        }
+        
+        console.log('✅ 所有提醒已清除');
+    }
+
+    /**
+     * 设置任务提醒
+     * @param {Object} task - 任务对象
+     * @param {string} planName - 计划名称
+     */
+    setTaskReminder(task, planName) {
+        console.log('开始设置任务提醒:', {
+            taskName: task.name,
+            timeSlot: task.timeSlot,
+            planName: planName,
+            isEnabled: this.isEnabled,
+            studyStartEnabled: this.reminderTypes.studyStart,
+            studyEndEnabled: this.reminderTypes.studyEnd
+        });
+
+        if (!this.isEnabled || !task.timeSlot) {
+            console.log('跳过设置提醒：语音未启用或无时间段');
+            return;
+        }
+
+        const timeInfo = this.parseTimeSlot(task.timeSlot);
+        if (!timeInfo) {
+            console.warn('无效的时间段格式:', task.timeSlot);
+            return;
+        }
+
+        console.log('解析时间段成功:', timeInfo);
+
+        const reminderId = `${task.id}_${planName}`;
+        
+        // 清除现有提醒
+        this.clearTaskReminder(reminderId);
+
+        // 预定义变量，避免作用域问题
+        let startTimerId = null;
+        let endTimerId = null;
+        let startTime = null;
+        let endTime = null;
+
+        // 设置学习开始提醒（仅当启用时）
+        if (this.reminderTypes.studyStart) {
+            startTime = this.getNextReminderTime(timeInfo);
+            const delay = startTime.getTime() - Date.now();
+            
+            console.log('设置学习开始提醒:', {
+                startTime: startTime.toLocaleString(),
+                delay: delay,
+                delayMinutes: Math.round(delay / 60000)
+            });
+
+            // 如果延迟时间太长（超过24小时），添加警告
+            if (delay > 24 * 60 * 60 * 1000) {
+                console.warn('提醒时间超过24小时，可能不会正确触发');
+            }
+            
+            // 本地定时器（页面活跃时使用）
+            startTimerId = setTimeout(() => {
+                console.log('触发学习开始提醒:', task.name);
+                this.playStartReminder(task, planName, timeInfo);
+                // 在学习开始时请求Wake Lock
+                this.requestWakeLock();
+            }, delay);
+
+            // Service Worker定时器（后台使用）
+            if (this.serviceWorkerReady && navigator.serviceWorker.controller) {
+                console.log('向Service Worker发送提醒安排');
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'SCHEDULE_REMINDER',
+                    reminder: {
+                        id: `${reminderId}_start`,
+                        title: '学习开始提醒',
+                        body: `开始学习了！现在是${task.name}时间`,
+                        triggerTime: startTime.toISOString(),
+                        type: 'studyStart'
+                    }
+                });
+            } else {
+                console.log('⚠️ Service Worker未准备就绪或为本地文件环境，跳过后台提醒设置');
+            }
+        }
+
+        // 设置学习结束提醒（仅当启用时）
+        if (this.reminderTypes.studyEnd && startTime) {
+            endTime = new Date(startTime);
+            endTime.setHours(timeInfo.end.hour, timeInfo.end.minute, 0, 0);
+            const endDelay = endTime.getTime() - Date.now();
+            
+            console.log('设置学习结束提醒:', {
+                endTime: endTime.toLocaleString(),
+                endDelay: endDelay,
+                endDelayMinutes: Math.round(endDelay / 60000)
+            });
+            
+            // 本地定时器
+            endTimerId = setTimeout(() => {
+                console.log('触发学习结束提醒:', task.name);
+                this.playEndReminder(task, planName);
+                // 在学习结束时释放Wake Lock
+                this.releaseWakeLock();
+            }, endDelay);
+
+            // Service Worker定时器
+            if (this.serviceWorkerReady && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'SCHEDULE_REMINDER',
+                    reminder: {
+                        id: `${reminderId}_end`,
+                        title: '学习结束提醒',
+                        body: `${task.name}学习时间结束了，休息一下吧！`,
+                        triggerTime: endTime.toISOString(),
+                        type: 'studyEnd'
+                    }
+                });
+            } else {
+                console.log('⚠️ Service Worker未准备就绪或为本地文件环境，跳过学习结束后台提醒设置');
+            }
+        }
+
+        // 存储定时器信息（只有在至少设置了一个提醒时才存储）
+        if (startTimerId || endTimerId) {
+            this.timers.set(reminderId, {
+                startTimer: startTimerId,
+                endTimer: endTimerId,
+                task: task,
+                planName: planName
+            });
+            
+            console.log('✅ 任务提醒已设置:', reminderId);
+        } else {
+            console.log('⚠️ 没有设置任何提醒（可能被禁用）');
+        }
+    }
+
+    /**
+     * 播放学习开始提醒
+     */
+    playStartReminder(task, planName, timeInfo) {
+        console.log('🔊 准备播放学习开始提醒:', task.name);
+        
+        // 🆕 确保语音引擎已激活
+        if (!this.engineActivated) {
+            console.log('⚠️ 语音引擎未激活，尝试激活...');
+            this.activateSpeechSynthesis();
+            
+            // 延迟播放，给语音引擎时间激活
+            setTimeout(() => {
+                this.playStartReminder(task, planName, timeInfo);
+            }, 1000);
+            return;
+        }
+        
+        if (!this.canPlayReminder('studyStart')) {
+            console.log('⚠️ 学习开始提醒被禁用，跳过播放');
+            return;
+        }
+
+        const duration = this.calculateDuration(timeInfo);
+        const messages = [
+            `开始学习了！现在是${task.name}时间`,
+            `学习计划${planName}，${task.name}，预计学习${duration}分钟`,
+            `加油！开始${task.name}吧，坚持就是胜利！`,
+            `学习时间到了，准备开始${task.name}`,
+            `专注学习，${task.name}时间开始了`
+        ];
+        
+        const message = messages[Math.floor(Math.random() * messages.length)];
+        
+        console.log('🎯 播放学习开始提醒:', message);
+        this.speak(message, 'studyStart');
+        
+        // 显示通知
+        this.showNotification('学习开始', message);
+    }
+
+    /**
+     * 播放学习结束提醒
+     */
+    playEndReminder(task, planName) {
+        console.log('🔊 准备播放学习结束提醒:', task.name);
+        
+        // 🆕 确保语音引擎已激活
+        if (!this.engineActivated) {
+            console.log('⚠️ 语音引擎未激活，尝试激活...');
+            this.activateSpeechSynthesis();
+            
+            // 延迟播放，给语音引擎时间激活
+            setTimeout(() => {
+                this.playEndReminder(task, planName);
+            }, 1000);
+            return;
+        }
+        
+        if (!this.canPlayReminder('studyEnd')) {
+            console.log('⚠️ 学习结束提醒被禁用，跳过播放');
+            return;
+        }
+
+        const messages = [
+            `${task.name}学习时间结束了，休息一下吧！`,
+            `恭喜完成${task.name}的学习，给自己鼓掌！`,
+            `学习任务完成，记得标记完成状态哦`,
+            `${task.name}时间到了，可以休息了`,
+            `很棒！${task.name}学习完成，继续保持！`
+        ];
+        
+        const message = messages[Math.floor(Math.random() * messages.length)];
+        
+        console.log('🎯 播放学习结束提醒:', message);
+        this.speak(message, 'studyEnd');
+        
+        // 显示通知
+        this.showNotification('学习结束', message);
+    }
+
+    /**
+     * 播放任务完成提醒
+     * @param {string} taskName - 任务名称
+     */
+    playTaskCompleteReminder(taskName) {
+        if (!this.canPlayReminder('taskComplete')) return;
+
+        const messages = [
+            `${taskName}学习状态已标记完成！`,
+            `恭喜完成${taskName}学习！`,
+            `${taskName}已完成，棒极了！`,
+            `很好！${taskName}学习完成`
+        ];
+        
+        const message = messages[Math.floor(Math.random() * messages.length)];
+        this.speak(message, 'taskComplete');
+    }
+
+    /**
+     * 播放任务掌握提醒
+     * @param {string} taskName - 任务名称
+     * @param {number} points - 获得的积分
+     */
+    playTaskMasterReminder(taskName, points) {
+        if (!this.canPlayReminder('taskMaster')) return;
+
+        const messages = [
+            `${taskName}已掌握！获得${points}积分`,
+            `恭喜掌握${taskName}！积分+${points}`,
+            `很好！${taskName}掌握完成，获得${points}积分`,
+            `${taskName}掌握成功！积分奖励${points}分`
+        ];
+        
+        const message = messages[Math.floor(Math.random() * messages.length)];
+        this.speak(message, 'taskMaster');
+    }
+
+    /**
+     * 播放设置确认提醒
+     * @param {string} settingType - 设置类型
+     * @param {string} value - 设置值
+     */
+    playSettingConfirmReminder(settingType, value) {
+        if (!this.canPlayReminder('settingConfirm')) return;
+
+        let message = '';
+        switch (settingType) {
+            case 'timeSlot':
+                message = `已为${value.taskName}设置时间提醒：${value.timeSlot}`;
+                break;
+            case 'points':
+                message = `已设置积分：${value}分`;
+                break;
+            case 'voiceSettings':
+                message = '语音设置已保存';
+                break;
+            default:
+                message = '设置已保存';
+        }
+        
+        this.speak(message, 'settingConfirm');
+    }
+
+    /**
+     * 播放计划添加提醒
+     * @param {string} planName - 计划名称
+     * @param {number} taskCount - 任务数量
+     */
+    playPlanAddedReminder(planName, taskCount) {
+        if (!this.canPlayReminder('planAdded')) return;
+
+        const messages = [
+            `学习计划"${planName}"已添加，包含${taskCount}个任务`,
+            `新计划"${planName}"创建成功，共${taskCount}个学习任务`,
+            `"${planName}"计划已准备就绪，${taskCount}个任务等待完成`,
+            `计划"${planName}"添加完成，开始${taskCount}个学习任务吧`
+        ];
+        
+        const message = messages[Math.floor(Math.random() * messages.length)];
+        this.speak(message, 'planAdded');
+    }
+
+    /**
+     * 播放鼓励性提醒
+     * @param {string} context - 上下文
+     */
+    playEncouragementReminder(context = 'general') {
+        if (!this.canPlayReminder('encouragement')) return;
+
+        const encouragementMessages = {
+            general: [
+                '加油！坚持就是胜利！',
+                '你很棒！继续保持！',
+                '努力学习，未来可期！',
+                '每一次努力都是成长！'
+            ],
+            completion: [
+                '太棒了！今天的学习任务完成了！',
+                '恭喜你！又度过了充实的一天！',
+                '坚持不懈，你已经很优秀了！',
+                '学习完成，给自己一个大大的赞！'
+            ],
+            milestone: [
+                '里程碑达成！你的努力得到了回报！',
+                '阶段目标完成，继续向前冲！',
+                '你的坚持很了不起！',
+                '进步显著，保持这个节奏！'
+            ]
+        };
+        
+        const messages = encouragementMessages[context] || encouragementMessages.general;
+        const message = messages[Math.floor(Math.random() * messages.length)];
+        this.speak(message, 'encouragement');
+    }
+
+    /**
+     * 计算学习时长
+     */
+    calculateDuration(timeInfo) {
+        const startMinutes = timeInfo.start.hour * 60 + timeInfo.start.minute;
+        const endMinutes = timeInfo.end.hour * 60 + timeInfo.end.minute;
+        return endMinutes - startMinutes;
+    }
+
+    /**
+     * 添加语音提醒UI
+     */
+    addVoiceReminderUI() {
+        // 这个方法的实现会在index.html中处理
+        console.log('📱 语音提醒UI将由主页面处理');
+    }
+
+    /**
+     * 绑定语音设置事件
+     */
+    bindVoiceSettingsEvents() {
+        // 这个方法的实现会在index.html中处理
+        console.log('🔗 语音设置事件将由主页面处理');
+    }
+
+    /**
+     * 保存语音设置
+     */
+    saveVoiceSettings() {
+        console.log('💾 保存语音设置...');
+        
+        // 获取设置值
+        const isEnabled = document.getElementById('voiceEnabled')?.checked || false;
+        const volume = parseFloat(document.getElementById('voiceVolume')?.value || 0.8);
+        const rate = parseFloat(document.getElementById('voiceRate')?.value || 1.0);
+        
+        // 获取提醒类型设置
+        const reminderTypes = {
+            studyStart: document.getElementById('voiceStudyStart')?.checked || false,
+            studyEnd: document.getElementById('voiceStudyEnd')?.checked || false,
+            taskComplete: document.getElementById('voiceTaskComplete')?.checked || false,
+            taskMaster: document.getElementById('voiceTaskMaster')?.checked || false,
+            settingConfirm: document.getElementById('voiceSettingConfirm')?.checked || false,
+            planAdded: document.getElementById('voicePlanAdded')?.checked || false,
+            encouragement: document.getElementById('voiceEncouragement')?.checked || false
+        };
+        
+        // 更新设置
+        this.isEnabled = isEnabled;
+        this.volume = volume;
+        this.rate = rate;
+        Object.assign(this.reminderTypes, reminderTypes);
+        
+        // 保存到本地存储
+        this.saveSetting('voiceReminderEnabled', isEnabled);
+        this.saveSetting('voiceReminderVolume', volume);
+        this.saveSetting('voiceReminderRate', rate);
+        
+        Object.entries(reminderTypes).forEach(([type, enabled]) => {
+            const key = `voice${type.charAt(0).toUpperCase() + type.slice(1)}`;
+            this.saveSetting(key, enabled);
+        });
+        
+        console.log('✅ 语音设置已保存');
+        
+        // 播放确认提醒
+        if (isEnabled) {
+            this.playSettingConfirmReminder('voiceSettings', '');
+        }
+    }
+
+    /**
+     * 测试语音
+     */
+    async testVoice() {
+        console.log('🧪 开始语音测试...');
+        
+        if (!this.speechSynthesis) {
+            alert('❌ 语音引擎不可用！请刷新页面重试。');
+            return;
+        }
+        
+        try {
+            // 强制激活语音引擎
+            this.activateSpeechSynthesis();
+            
+            // 播放测试语音
+            const testMessage = '语音测试成功！系统工作正常！';
+            this.speak(testMessage, null, 1);
+            
+            console.log('✅ 语音测试完成');
+            
+        } catch (error) {
+            console.error('💥 语音测试失败:', error);
+            alert('❌ 语音测试失败: ' + error.message);
+        }
+    }
+
+    /**
+     * 更新状态
+     */
+    updateStatus(type, status) {
+        console.log(`📊 状态更新: ${type} = ${status}`);
+    }
+
+    /**
+     * 强制激活严格浏览器
+     */
+    async forceActivateForStrictBrowsers() {
+        console.log('💪 强制激活严格浏览器语音功能...');
+        
+        const attemptActivation = () => {
+            return new Promise((resolve) => {
+                try {
+                    // 创建一个简单的utterance来激活引擎
+                    const utterance = new SpeechSynthesisUtterance('激活');
+                    utterance.volume = 0.01; // 几乎静音
+                    utterance.rate = 2.0; // 快速播放
+                    
+                    utterance.onstart = () => {
+                        console.log('✅ 语音引擎激活成功');
+                        this.engineActivated = true;
+                        resolve(true);
+                    };
+                    
+                    utterance.onerror = (error) => {
+                        console.log('❌ 激活失败:', error);
+                        resolve(false);
+                    };
+                    
+                    utterance.onend = () => {
+                        if (!this.engineActivated) {
+                            resolve(false);
+                        }
+                    };
+                    
+                    this.speechSynthesis.speak(utterance);
+                    
+                    // 超时处理
+                    setTimeout(() => {
+                        if (!this.engineActivated) {
+                            console.log('⏱️ 激活超时');
+                            resolve(false);
+                        }
+                    }, 3000);
+                    
+                } catch (error) {
+                    console.error('💥 激活异常:', error);
+                    resolve(false);
+                }
+            });
+        };
+        
+        // 多次尝试激活
+        for (let i = 0; i < 3; i++) {
+            console.log(`🔄 第 ${i + 1} 次尝试激活...`);
+            const success = await attemptActivation();
+            if (success) {
+                console.log('🎉 严格浏览器语音激活成功！');
+                return true;
+            }
+            
+            // 等待一段时间再重试
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+        console.log('❌ 严格浏览器语音激活失败');
+        return false;
+    }
+
+    /**
+     * 获取已启用提醒统计
+     */
+    getEnabledReminderStats() {
+        const total = Object.keys(this.reminderTypes).length;
+        const enabled = Object.values(this.reminderTypes).filter(Boolean).length;
+        return { enabled, total };
+    }
+
+    /**
+     * 更新状态显示
+     */
+    updateStatusDisplay() {
+        // 由主页面处理
+        console.log('📊 状态显示更新');
+    }
+
+    /**
+     * 设置测试提醒
+     */
+    setTestReminder(task, planName, delaySeconds = 5) {
+        console.log(`设置测试提醒：${delaySeconds}秒后触发`);
+        
+        const reminderId = `test_${task.id}_${planName}`;
+        
+        // 清除现有提醒
+        this.clearTaskReminder(reminderId);
+        
+        // 设置测试提醒
+        const testTimerId = setTimeout(() => {
+            console.log('触发测试提醒:', task.name);
+            this.playStartReminder(task, planName, { start: { hour: 0, minute: 0 }, end: { hour: 1, minute: 0 } });
+        }, delaySeconds * 1000);
+        
+        // 存储定时器ID
+        this.timers.set(reminderId, {
+            startTimer: testTimerId,
+            endTimer: null,
+            task: task,
+            planName: planName,
+            isTest: true
+        });
+        
+        console.log(`测试提醒已设置，${delaySeconds}秒后播放`);
+    }
+
+    /**
+     * iPhone 6 专用激活
+     */
+    activateForIPhone6() {
+        console.log('📱 iPhone 6 专用语音激活...');
+        
+        // iPhone 6 专用的激活逻辑
+        this.activateSpeechSynthesis();
+        
+        // 标记为已激活
+        this.engineActivated = true;
+        
+        console.log('✅ iPhone 6 语音激活完成');
+    }
+
+    /**
+     * iPhone 6 专用测试
+     */
+    async testForIPhone6() {
+        console.log('🧪 iPhone 6 专用测试...');
+        
+        try {
+            this.activateForIPhone6();
+            
+            const testMessage = 'iPhone 6 语音测试成功！';
+            this.speak(testMessage, null, 1);
+            
+            return true;
+        } catch (error) {
+            console.error('💥 iPhone 6 测试失败:', error);
+            return false;
+        }
+    }
+
+    /**
+     * iPhone 6 专用语音播放
+     */
+    speakForIPhone6(text, type = null, repeatCount = 3) {
+        console.log('📱 iPhone 6 专用语音播放:', text);
+        
+        // 确保激活
+        this.activateForIPhone6();
+        
+        // 播放语音
+        this.speak(text, type, repeatCount);
+    }
 }
 
 // 全局函数，供HTML调用
