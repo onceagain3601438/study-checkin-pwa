@@ -2885,7 +2885,8 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                         <div class="plan-header">
                             <span class="plan-name">${plan.name}</span>
                             <div class="plan-actions">
-                                <div class="action-btn" onclick="deletePlan(${plan.id})">🗑️</div>
+                                <div class="action-btn" onclick="savePlanAsTemplate(${plan.id})" title="保存为模板" style="background: #28a745; color: white; margin-right: 5px;">📝</div>
+                                <div class="action-btn" onclick="deletePlan(${plan.id})" title="删除计划">🗑️</div>
                             </div>
                         </div>
                         
@@ -3618,11 +3619,114 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
             }
         }
 
-        // 加载学习模板
+        // 🆕 自定义模板管理系统
+        function getCustomTemplates() {
+            try {
+                const templates = localStorage.getItem('customStudyTemplates');
+                return templates ? JSON.parse(templates) : [];
+            } catch (error) {
+                console.error('读取自定义模板失败:', error);
+                return [];
+            }
+        }
+
+        function saveCustomTemplates(templates) {
+            try {
+                localStorage.setItem('customStudyTemplates', JSON.stringify(templates));
+                console.log('✅ 自定义模板已保存', templates.length, '个');
+            } catch (error) {
+                console.error('保存自定义模板失败:', error);
+            }
+        }
+
+        function deleteCustomTemplate(templateId) {
+            const templates = getCustomTemplates();
+            const updatedTemplates = templates.filter(t => t.id !== templateId);
+            saveCustomTemplates(updatedTemplates);
+        }
+
+        // 🆕 保存学习计划为自定义模板
+        function savePlanAsTemplate(planId) {
+            console.log('📝 保存计划为模板:', planId);
+            
+            const dateKey = getDateKey(currentStudyDate);
+            const plan = studyData[dateKey]?.find(p => p.id === planId);
+            
+            if (!plan) {
+                alert('❌ 未找到要保存的学习计划');
+                return;
+            }
+
+            if (plan.tasks.length === 0) {
+                alert('❌ 该计划没有任务，无法保存为模板');
+                return;
+            }
+
+            const templateName = prompt('请输入模板名称：', plan.name);
+            
+            if (!templateName || !templateName.trim()) {
+                return;
+            }
+
+            try {
+                const customTemplates = getCustomTemplates();
+                
+                // 创建新模板
+                const newTemplate = {
+                    id: Date.now().toString(),
+                    name: templateName.trim(),
+                    isCustom: true,
+                    createTime: new Date().toLocaleString(),
+                    tasks: plan.tasks.map(task => ({
+                        name: task.name,
+                        timeSlot: task.timeSlot || '',
+                        points: task.points || 0
+                    }))
+                };
+                
+                // 检查是否已存在同名模板
+                const existingTemplate = customTemplates.find(t => t.name === newTemplate.name);
+                if (existingTemplate) {
+                    const overwrite = confirm(`模板"${newTemplate.name}"已存在，是否覆盖？`);
+                    if (overwrite) {
+                        // 覆盖现有模板
+                        const updatedTemplates = customTemplates.map(t => 
+                            t.name === newTemplate.name ? newTemplate : t
+                        );
+                        saveCustomTemplates(updatedTemplates);
+                    } else {
+                        return;
+                    }
+                } else {
+                    // 添加新模板
+                    customTemplates.push(newTemplate);
+                    saveCustomTemplates(customTemplates);
+                }
+                
+                alert(`✅ 模板"${templateName}"保存成功！\n包含 ${plan.tasks.length} 个任务`);
+                
+                // 播放保存成功语音提醒
+                if (voiceReminder && voiceReminder.isEnabled) {
+                    voiceReminder.playSettingConfirmReminder('template', `模板"${templateName}"保存成功`);
+                }
+                
+                console.log('✅ 自定义模板保存成功:', newTemplate);
+                
+            } catch (error) {
+                console.error('💥 保存模板失败:', error);
+                alert('❌ 保存模板失败: ' + error.message);
+            }
+        }
+
+        // 加载学习模板（包含自定义模板）
         function loadTemplate() {
-            const templates = [
+            console.log('📁 加载学习模板...');
+            
+            // 系统预设模板
+            const systemTemplates = [
                 {
                     name: '高效学习模板',
+                    isCustom: false,
                     tasks: [
                         { name: '晨读英语', timeSlot: '7:00-7:30', points: 10 },
                         { name: '数学练习', timeSlot: '9:00-10:00', points: 15 },
@@ -3632,6 +3736,7 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                 },
                 {
                     name: '考试冲刺模板',
+                    isCustom: false,
                     tasks: [
                         { name: '重点知识复习', timeSlot: '8:00-10:00', points: 25 },
                         { name: '刷题练习', timeSlot: '14:00-16:00', points: 20 },
@@ -3641,6 +3746,7 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                 },
                 {
                     name: '语言学习模板',
+                    isCustom: false,
                     tasks: [
                         { name: '单词记忆', timeSlot: '7:00-7:30', points: 10 },
                         { name: '听力练习', timeSlot: '12:00-12:30', points: 10 },
@@ -3650,6 +3756,7 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                 },
                 {
                     name: '技能提升模板',
+                    isCustom: false,
                     tasks: [
                         { name: '编程实践', timeSlot: '9:00-11:00', points: 20 },
                         { name: '理论学习', timeSlot: '14:00-15:30', points: 15 },
@@ -3659,17 +3766,62 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                 }
             ];
             
-            const templateList = templates.map((template, index) => 
-                `${index + 1}. ${template.name} (${template.tasks.length}个任务)`
-            ).join('\n');
+            // 获取自定义模板
+            const customTemplates = getCustomTemplates();
             
-            const choice = prompt(`请选择学习模板：\n\n${templateList}\n\n请输入模板编号 (1-${templates.length}):`);
+            // 合并所有模板
+            const allTemplates = [...systemTemplates, ...customTemplates];
             
-            if (!choice || isNaN(choice) || choice < 1 || choice > templates.length) {
+            if (allTemplates.length === 0) {
+                alert('❌ 没有可用的学习模板');
+                return;
+            }
+
+            // 构建模板选择列表
+            let templateList = '';
+            if (systemTemplates.length > 0) {
+                templateList += '📚 系统模板：\n';
+                systemTemplates.forEach((template, index) => {
+                    templateList += `${index + 1}. ${template.name} (${template.tasks.length}个任务)\n`;
+                });
+            }
+            
+            if (customTemplates.length > 0) {
+                templateList += '\n🎯 我的模板：\n';
+                customTemplates.forEach((template, index) => {
+                    const templateIndex = systemTemplates.length + index + 1;
+                    templateList += `${templateIndex}. ${template.name} (${template.tasks.length}个任务) - ${template.createTime}\n`;
+                });
+            }
+            
+            templateList += `\n0. 管理自定义模板`;
+            
+            const choice = prompt(`请选择学习模板：\n\n${templateList}\n\n请输入模板编号 (1-${allTemplates.length}, 0-管理模板):`);
+            
+            if (!choice) {
                 return;
             }
             
-            const selectedTemplate = templates[choice - 1];
+            // 管理模板选项
+            if (choice === '0') {
+                manageCustomTemplates();
+                return;
+            }
+            
+            const templateIndex = parseInt(choice) - 1;
+            if (isNaN(templateIndex) || templateIndex < 0 || templateIndex >= allTemplates.length) {
+                alert('❌ 无效的模板编号');
+                return;
+            }
+            
+            const selectedTemplate = allTemplates[templateIndex];
+            loadTemplateToStudy(selectedTemplate);
+        }
+
+        // 🆕 应用模板到当前学习日期
+        function loadTemplateToStudy(template) {
+            console.log('📋 应用模板到学习:', template.name);
+            
             const today = getDateKey(currentStudyDate);
             
             if (!studyData[today]) {
@@ -3679,35 +3831,116 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
             // 创建基于模板的学习计划
             const newPlan = {
                 id: Date.now(),
-                name: selectedTemplate.name,
-                tasks: selectedTemplate.tasks.map((task, index) => ({
+                name: template.name + (template.isCustom ? ' (我的模板)' : ''),
+                tasks: template.tasks.map((task, index) => ({
                     id: Date.now() + index,
                     name: task.name,
-                    timeSlot: task.timeSlot,
+                    timeSlot: task.timeSlot || '',
                     studyCompleted: false,
                     masteredCompleted: false,
-                    points: task.points,
+                    points: task.points || 0,
                     earnedPoints: 0
                 })),
                 completionRate: 0,
                 completedTasks: 0,
-                totalTasks: selectedTemplate.tasks.length,
+                totalTasks: template.tasks.length,
                 earnedPoints: 0,
-                totalPoints: selectedTemplate.tasks.reduce((sum, task) => sum + task.points, 0)
+                totalPoints: template.tasks.reduce((sum, task) => sum + (task.points || 0), 0)
             };
             
             studyData[today].push(newPlan);
             saveData();
             updateStudyDisplay();
             
-            // 播放成功提醒 - 添加调试信息
-            console.log('尝试播放模板加载成功语音提醒:', selectedTemplate.name);
-            if (voiceReminder) {
-                console.log('语音提醒对象存在，强制播放语音');
-                // 直接调用speak方法，不检查类型限制
-                voiceReminder.speak(`已成功加载${selectedTemplate.name}！开始今天的学习吧！`, null, 3);
+            // 播放成功提醒
+            const message = `已成功加载${template.isCustom ? '自定义' : '系统'}模板"${template.name}"！开始今天的学习吧！`;
+            console.log('🎵 模板加载成功:', message);
+            
+            if (voiceReminder && voiceReminder.isEnabled) {
+                voiceReminder.speak(message, 'planAdded');
+            }
+            
+            alert(`✅ ${message}`);
+        }
+
+        // 🆕 管理自定义模板
+        function manageCustomTemplates() {
+            const customTemplates = getCustomTemplates();
+            
+            if (customTemplates.length === 0) {
+                alert('📝 您还没有自定义模板\n\n💡 提示：在学习计划右上角点击📝按钮可以保存为模板');
+                return;
+            }
+            
+            let templateList = '🎯 我的自定义模板：\n\n';
+            customTemplates.forEach((template, index) => {
+                templateList += `${index + 1}. ${template.name}\n`;
+                templateList += `   📅 创建时间：${template.createTime}\n`;
+                templateList += `   📋 任务数量：${template.tasks.length}个\n\n`;
+            });
+            
+            templateList += `请选择操作：\n`;
+            templateList += `输入编号(1-${customTemplates.length}) - 预览模板\n`;
+            templateList += `输入 "删除X" - 删除第X个模板\n`;
+            templateList += `输入 "取消" - 返回`;
+            
+            const choice = prompt(templateList);
+            
+            if (!choice || choice === '取消') {
+                return;
+            }
+            
+            // 处理删除操作
+            if (choice.startsWith('删除')) {
+                const deleteIndex = parseInt(choice.replace('删除', '')) - 1;
+                if (deleteIndex >= 0 && deleteIndex < customTemplates.length) {
+                    const templateToDelete = customTemplates[deleteIndex];
+                    const confirmDelete = confirm(`确定要删除模板"${templateToDelete.name}"吗？\n\n⚠️ 此操作无法撤销！`);
+                    
+                    if (confirmDelete) {
+                        deleteCustomTemplate(templateToDelete.id);
+                        alert(`✅ 模板"${templateToDelete.name}"已删除`);
+                        
+                        // 播放删除成功语音提醒
+                        if (voiceReminder && voiceReminder.isEnabled) {
+                            voiceReminder.speak(`模板"${templateToDelete.name}"已删除`, 'settingConfirm');
+                        }
+                    }
+                } else {
+                    alert('❌ 无效的模板编号');
+                }
+                return;
+            }
+            
+            // 处理预览操作
+            const templateIndex = parseInt(choice) - 1;
+            if (templateIndex >= 0 && templateIndex < customTemplates.length) {
+                const template = customTemplates[templateIndex];
+                
+                let preview = `📋 模板预览：${template.name}\n\n`;
+                preview += `📅 创建时间：${template.createTime}\n\n`;
+                preview += `📝 任务列表：\n`;
+                
+                template.tasks.forEach((task, index) => {
+                    preview += `${index + 1}. ${task.name}`;
+                    if (task.timeSlot) {
+                        preview += ` (${task.timeSlot})`;
+                    }
+                    if (task.points > 0) {
+                        preview += ` - ${task.points}分`;
+                    }
+                    preview += '\n';
+                });
+                
+                preview += `\n总计：${template.tasks.length}个任务，${template.tasks.reduce((sum, task) => sum + (task.points || 0), 0)}积分`;
+                preview += `\n\n要应用此模板吗？`;
+                
+                const applyTemplate = confirm(preview);
+                if (applyTemplate) {
+                    loadTemplateToStudy(template);
+                }
             } else {
-                console.log('语音提醒对象不存在');
+                alert('❌ 无效的模板编号');
             }
         }
 
