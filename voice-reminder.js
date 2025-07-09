@@ -20,6 +20,17 @@ class VoiceReminder {
             encouragement: this.loadSetting('voiceEncouragement', true)      // 鼓励性提醒
         };
         
+        // 🆕 各种提醒类型的自定义重复次数
+        this.repeatCounts = {
+            studyStart: this.loadSetting('repeatStudyStart', 3),             // 学习开始提醒次数
+            studyEnd: this.loadSetting('repeatStudyEnd', 3),                 // 学习结束提醒次数
+            taskComplete: this.loadSetting('repeatTaskComplete', 1),         // 任务完成提醒次数
+            taskMaster: this.loadSetting('repeatTaskMaster', 5),             // 任务掌握提醒次数
+            settingConfirm: this.loadSetting('repeatSettingConfirm', 1),     // 设置确认提醒次数
+            planAdded: this.loadSetting('repeatPlanAdded', 1),               // 计划添加提醒次数
+            encouragement: this.loadSetting('repeatEncouragement', 2)        // 鼓励性提醒次数
+        };
+        
         this.timers = new Map(); // 存储定时器
         this.currentReminders = new Map(); // 存储当前提醒
         this.wakeLock = null; // Wake Lock 对象
@@ -451,10 +462,24 @@ class VoiceReminder {
      * 播放语音
      * @param {string} text - 要播放的文本
      * @param {string} type - 提醒类型
-     * @param {number} repeatCount - 重复次数
+     * @param {number} repeatCount - 重复次数（可选，会根据type自动确定）
      * @param {number} currentRepeat - 当前重复次数
      */
-    speak(text, type = null, repeatCount = 3, currentRepeat = 1) {
+    speak(text, type = null, repeatCount = null, currentRepeat = 1) {
+        // 🆕 根据提醒类型自动确定重复次数
+        if (repeatCount === null && type && this.repeatCounts && this.repeatCounts[type] !== undefined) {
+            repeatCount = this.repeatCounts[type];
+            console.log(`🔢 根据类型 "${type}" 自动设置重复次数: ${repeatCount}`);
+        } else if (repeatCount === null) {
+            repeatCount = 3; // 默认次数
+        }
+        
+        // 🆕 如果重复次数为0，视为禁用该提醒
+        if (repeatCount === 0) {
+            console.log(`🚫 提醒类型 "${type}" 重复次数为0，跳过播放`);
+            return;
+        }
+        
         console.log(`🔊 语音播放请求 (${currentRepeat}/${repeatCount}):`, text, type);
         
         // 基础检查
