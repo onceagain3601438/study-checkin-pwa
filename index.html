@@ -4799,9 +4799,29 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
         //     console.log('✅ iPhone 6专用页面初始化完成');
         // });
 
-        // DOMContentLoaded 事件处理 - 智能环境适配版
+        // DOMContentLoaded 事件处理 - 智能环境适配版（增强数据保护）
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 页面加载完成，开始智能环境检测...');
+            console.log('🚀 页面加载完成，开始智能环境检测（数据保护版）...');
+            
+            // 🆕 首先检查是否为iPhone 6
+            if (isIPhone6()) {
+                console.log('📱 检测到iPhone 6设备，启用专用优化');
+                document.body.classList.add('iphone6-optimized');
+            }
+            
+            // 🆕 检查Service Worker消息（数据保护）
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.addEventListener('message', function(event) {
+                    if (event.data && event.data.type === 'CACHE_CLEANED' && event.data.protectUserData) {
+                        console.log('🛡️ 收到缓存清理通知，开始保护用户数据...');
+                        
+                        // 立即检查和备份用户数据
+                        setTimeout(() => {
+                            checkAndRestoreUserData();
+                        }, 100);
+                    }
+                });
+            }
             
             // 加载存储的数据
             loadData();
@@ -4811,6 +4831,9 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
             
             // 更新总积分
             updateTotalPoints();
+            
+            // 🆕 加载奖励数据（增强版）
+            loadRewardData();
             
             // 🆕 智能环境检测和初始化
             detectEnvironmentAndInit();
@@ -4829,7 +4852,12 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                 }
             }, 3000);
             
-            console.log('✅ 智能环境适配初始化完成');
+            // 🆕 延迟执行数据完整性检查
+            setTimeout(() => {
+                performDataIntegrityCheck();
+            }, 2000);
+            
+            console.log('✅ 智能环境适配初始化完成（数据保护版）');
         });
 
         // 🆕 检查并设置语音提醒
@@ -5645,45 +5673,305 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
         }
 
         /**
-         * 保存奖励数据到本地存储
+         * 🆕 增强版奖励数据保存（多重备份策略）
          */
         function saveRewardData() {
-            localStorage.setItem('rewardSettings', JSON.stringify(rewardSettings));
-            localStorage.setItem('claimedRewards', JSON.stringify(claimedRewards));
-            console.log('💾 奖励数据已保存');
+            saveRewardDataWithBackup();
         }
-
+        
         /**
-         * 从本地存储加载奖励数据
+         * 🆕 带备份的奖励数据保存
          */
-        function loadRewardData() {
+        function saveRewardDataWithBackup() {
             try {
-                const savedRewardSettings = localStorage.getItem('rewardSettings');
-                const savedClaimedRewards = localStorage.getItem('claimedRewards');
+                const rewardSettingsJSON = JSON.stringify(rewardSettings);
+                const claimedRewardsJSON = JSON.stringify(claimedRewards);
+                const timestamp = Date.now();
                 
-                if (savedRewardSettings) {
-                    rewardSettings = JSON.parse(savedRewardSettings);
-                    console.log('📥 奖励设置已加载:', rewardSettings.length, '个奖励');
+                // 🆕 多重备份策略
+                console.log('💾 开始多重备份保存奖励数据...');
+                
+                // 主存储
+                localStorage.setItem('rewardSettings', rewardSettingsJSON);
+                localStorage.setItem('claimedRewards', claimedRewardsJSON);
+                
+                // 版本化存储
+                localStorage.setItem('rewardSettings_v2', rewardSettingsJSON);
+                localStorage.setItem('claimedRewards_v2', claimedRewardsJSON);
+                
+                // 备份存储
+                localStorage.setItem('rewardSettings_backup', rewardSettingsJSON);
+                localStorage.setItem('claimedRewards_backup', claimedRewardsJSON);
+                
+                // 紧急备份（带时间戳）
+                localStorage.setItem('rewardSettings_emergency', rewardSettingsJSON);
+                localStorage.setItem('claimedRewards_emergency', claimedRewardsJSON);
+                
+                // 保存时间戳
+                localStorage.setItem('rewardData_lastSaved', timestamp.toString());
+                
+                // 🆕 iPhone 6专用：额外保存一份到专用存储
+                if (isIPhone6()) {
+                    localStorage.setItem('rewardSettings_iPhone6', rewardSettingsJSON);
+                    localStorage.setItem('claimedRewards_iPhone6', claimedRewardsJSON);
+                    console.log('📱 iPhone 6专用备份已保存');
                 }
                 
-                if (savedClaimedRewards) {
-                    claimedRewards = JSON.parse(savedClaimedRewards);
-                    console.log('📥 已领取奖励记录已加载:', claimedRewards.length, '个记录');
-                }
-                
-                // 初始化默认奖励（仅在首次使用时）
-                if (rewardSettings.length === 0) {
-                    initializeDefaultRewards();
-                }
+                console.log('✅ 奖励数据多重备份保存完成', {
+                    rewardCount: rewardSettings.length,
+                    claimedCount: claimedRewards.length,
+                    timestamp: new Date(timestamp).toLocaleString()
+                });
                 
             } catch (error) {
-                console.error('❌ 加载奖励数据失败:', error);
-                rewardSettings = [];
-                claimedRewards = [];
-                initializeDefaultRewards();
+                console.error('❌ 保存奖励数据失败:', error);
+                
+                // 🆕 错误处理：尝试基础保存
+                try {
+                    localStorage.setItem('rewardSettings', JSON.stringify(rewardSettings));
+                    localStorage.setItem('claimedRewards', JSON.stringify(claimedRewards));
+                    console.log('⚠️ 基础保存成功（备份可能失败）');
+                } catch (basicError) {
+                    console.error('💥 基础保存也失败:', basicError);
+                    showSaveErrorNotification();
+                }
             }
         }
 
+        /**
+         * 🆕 增强版奖励数据加载（防止更新丢失）
+         */
+        function loadRewardData() {
+            try {
+                console.log('🔄 开始加载奖励数据（防更新丢失版）...');
+                
+                // 🆕 多重备份策略加载奖励设置
+                let savedRewardSettings = null;
+                let savedClaimedRewards = null;
+                
+                // 策略1：从主存储位置加载
+                const primaryRewardSettings = localStorage.getItem('rewardSettings');
+                const primaryClaimedRewards = localStorage.getItem('claimedRewards');
+                
+                // 策略2：从备份存储位置加载
+                const backupRewardSettings = localStorage.getItem('rewardSettings_backup');
+                const backupClaimedRewards = localStorage.getItem('claimedRewards_backup');
+                
+                // 策略3：从带版本号的存储位置加载
+                const versionedRewardSettings = localStorage.getItem('rewardSettings_v2');
+                const versionedClaimedRewards = localStorage.getItem('claimedRewards_v2');
+                
+                // 优先使用主存储，然后是版本化存储，最后是备份存储
+                savedRewardSettings = primaryRewardSettings || versionedRewardSettings || backupRewardSettings;
+                savedClaimedRewards = primaryClaimedRewards || versionedClaimedRewards || backupClaimedRewards;
+                
+                console.log('💾 数据源检查:', {
+                    primary: primaryRewardSettings ? '✓' : '✗',
+                    versioned: versionedRewardSettings ? '✓' : '✗',
+                    backup: backupRewardSettings ? '✓' : '✗',
+                    finalSource: savedRewardSettings ? '找到数据' : '无数据'
+                });
+                
+                // 解析奖励设置
+                if (savedRewardSettings) {
+                    rewardSettings = JSON.parse(savedRewardSettings);
+                    console.log('📥 奖励设置已加载:', rewardSettings.length, '个奖励');
+                    
+                    // 🆕 数据验证和修复
+                    rewardSettings = validateAndFixRewardSettings(rewardSettings);
+                } else {
+                    console.log('ℹ️ 未找到奖励设置，将初始化默认奖励');
+                    rewardSettings = [];
+                }
+                
+                // 解析已领取奖励记录
+                if (savedClaimedRewards) {
+                    claimedRewards = JSON.parse(savedClaimedRewards);
+                    console.log('📥 已领取奖励记录已加载:', claimedRewards.length, '个记录');
+                    
+                    // 🆕 数据验证和修复
+                    claimedRewards = validateAndFixClaimedRewards(claimedRewards);
+                } else {
+                    console.log('ℹ️ 未找到已领取奖励记录');
+                    claimedRewards = [];
+                }
+                
+                // 🆕 立即创建多重备份
+                saveRewardDataWithBackup();
+                
+                // 初始化默认奖励（仅在首次使用或数据为空时）
+                if (rewardSettings.length === 0) {
+                    console.log('🎁 初始化默认奖励设置...');
+                    initializeDefaultRewards();
+                }
+                
+                console.log('✅ 奖励数据加载完成');
+                
+            } catch (error) {
+                console.error('❌ 加载奖励数据失败:', error);
+                
+                // 🆕 错误恢复策略
+                console.log('🔄 尝试错误恢复...');
+                
+                try {
+                    // 尝试从备份恢复
+                    const emergencyBackup = localStorage.getItem('rewardSettings_emergency');
+                    if (emergencyBackup) {
+                        rewardSettings = JSON.parse(emergencyBackup);
+                        console.log('🆘 从紧急备份恢复了', rewardSettings.length, '个奖励');
+                    } else {
+                        throw new Error('无可用备份');
+                    }
+                } catch (backupError) {
+                    console.error('❌ 备份恢复也失败:', backupError);
+                    
+                    // 最后的安全措施：重置为空并初始化默认
+                    rewardSettings = [];
+                    claimedRewards = [];
+                    initializeDefaultRewards();
+                    
+                    // 显示用户友好的错误提示
+                    showDataRecoveryNotification();
+                }
+            }
+        }
+
+        /**
+         * 🆕 数据验证和修复函数
+         */
+        function validateAndFixRewardSettings(data) {
+            if (!Array.isArray(data)) {
+                console.warn('⚠️ 奖励设置数据格式错误，重置为空数组');
+                return [];
+            }
+            
+            const validRewards = data.filter(reward => {
+                if (!reward || typeof reward !== 'object') return false;
+                if (!reward.id || !reward.rewardName || !reward.requiredPoints) return false;
+                if (typeof reward.requiredPoints !== 'number' || reward.requiredPoints <= 0) return false;
+                return true;
+            });
+            
+            if (validRewards.length !== data.length) {
+                console.warn(`⚠️ 奖励设置数据修复：${data.length} → ${validRewards.length}`);
+            }
+            
+            return validRewards;
+        }
+        
+        function validateAndFixClaimedRewards(data) {
+            if (!Array.isArray(data)) {
+                console.warn('⚠️ 已领取奖励数据格式错误，重置为空数组');
+                return [];
+            }
+            
+            const validClaimed = data.filter(claimed => {
+                if (!claimed || typeof claimed !== 'object') return false;
+                if (!claimed.rewardId || !claimed.claimedAt) return false;
+                return true;
+            });
+            
+            if (validClaimed.length !== data.length) {
+                console.warn(`⚠️ 已领取奖励数据修复：${data.length} → ${validClaimed.length}`);
+            }
+            
+            return validClaimed;
+        }
+        
+        /**
+         * 🆕 iPhone 6检测函数
+         */
+        function isIPhone6() {
+            return /iPhone OS 9_|iPhone OS 10_|iPhone OS 11_|iPhone OS 12_/.test(navigator.userAgent);
+        }
+        
+        /**
+         * 🆕 数据恢复通知
+         */
+        function showDataRecoveryNotification() {
+            console.log('📢 显示数据恢复通知...');
+            
+            // 创建通知元素
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: linear-gradient(135deg, #ff9a9e, #fecfef);
+                color: #333;
+                padding: 15px 20px;
+                border-radius: 15px;
+                font-size: 14px;
+                font-weight: bold;
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+                z-index: 10000;
+                max-width: 90%;
+                text-align: center;
+                border: 2px solid #ff6b6b;
+                animation: fadeInOut 8s ease-in-out;
+            `;
+            
+            notification.innerHTML = `
+                <div style="font-size: 16px; margin-bottom: 8px;">⚠️ 数据恢复提示</div>
+                <div style="font-size: 12px; line-height: 1.5; color: #666;">
+                    检测到数据异常，已自动恢复默认设置。<br>
+                    如果您之前设置了个人奖励，请重新设置。
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // 8秒后自动消失
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 8000);
+        }
+        
+        /**
+         * 🆕 保存错误通知
+         */
+        function showSaveErrorNotification() {
+            console.log('📢 显示保存错误通知...');
+            
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+                color: white;
+                padding: 15px 20px;
+                border-radius: 15px;
+                font-size: 14px;
+                font-weight: bold;
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+                z-index: 10000;
+                max-width: 90%;
+                text-align: center;
+                animation: fadeInOut 6s ease-in-out;
+            `;
+            
+            notification.innerHTML = `
+                <div style="font-size: 16px; margin-bottom: 8px;">❌ 保存失败</div>
+                <div style="font-size: 12px; line-height: 1.5;">
+                    奖励设置保存失败，请检查设备存储空间。
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // 6秒后自动消失
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 6000);
+        }
+        
         /**
          * 初始化默认奖励设置
          */
@@ -6043,6 +6331,288 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
         }
 
         // 🆕 ==================== 奖励系统功能函数结束 ====================
+
+        /**
+         * 🆕 数据完整性检查
+         */
+        function performDataIntegrityCheck() {
+            console.log('🔍 执行数据完整性检查...');
+            
+            try {
+                // 检查奖励设置数据
+                const rewardDataStatus = checkRewardDataIntegrity();
+                
+                // 检查学习数据
+                const studyDataStatus = checkStudyDataIntegrity();
+                
+                // 检查总积分一致性
+                const pointsStatus = checkPointsConsistency();
+                
+                console.log('📊 数据完整性检查结果:', {
+                    rewardData: rewardDataStatus,
+                    studyData: studyDataStatus,
+                    pointsConsistency: pointsStatus
+                });
+                
+                // 如果发现问题，显示修复建议
+                if (!rewardDataStatus || !studyDataStatus || !pointsStatus) {
+                    showDataIntegrityWarning();
+                }
+                
+            } catch (error) {
+                console.error('❌ 数据完整性检查失败:', error);
+            }
+        }
+        
+        /**
+         * 🆕 检查奖励数据完整性
+         */
+        function checkRewardDataIntegrity() {
+            try {
+                const primary = localStorage.getItem('rewardSettings');
+                const backup = localStorage.getItem('rewardSettings_backup');
+                const versioned = localStorage.getItem('rewardSettings_v2');
+                
+                if (primary && backup && versioned) {
+                    const primaryData = JSON.parse(primary);
+                    const backupData = JSON.parse(backup);
+                    const versionedData = JSON.parse(versioned);
+                    
+                    // 比较数据一致性
+                    const isConsistent = JSON.stringify(primaryData) === JSON.stringify(backupData) &&
+                                       JSON.stringify(primaryData) === JSON.stringify(versionedData);
+                    
+                    if (!isConsistent) {
+                        console.warn('⚠️ 奖励数据备份不一致，尝试修复...');
+                        // 使用最新的数据（通常是primary）
+                        localStorage.setItem('rewardSettings_backup', primary);
+                        localStorage.setItem('rewardSettings_v2', primary);
+                    }
+                    
+                    return true;
+                } else {
+                    console.warn('⚠️ 奖励数据备份不完整');
+                    return false;
+                }
+                
+            } catch (error) {
+                console.error('❌ 奖励数据完整性检查失败:', error);
+                return false;
+            }
+        }
+        
+        /**
+         * 🆕 检查学习数据完整性
+         */
+        function checkStudyDataIntegrity() {
+            try {
+                const studyDataStr = localStorage.getItem('studyCheckIn');
+                if (!studyDataStr) return true; // 空数据也是有效的
+                
+                const studyData = JSON.parse(studyDataStr);
+                
+                // 检查数据格式
+                if (typeof studyData !== 'object') {
+                    console.warn('⚠️ 学习数据格式错误');
+                    return false;
+                }
+                
+                // 检查每个日期的数据
+                for (const dateKey in studyData) {
+                    const plans = studyData[dateKey];
+                    if (!Array.isArray(plans)) {
+                        console.warn(`⚠️ 日期 ${dateKey} 的数据格式错误`);
+                        return false;
+                    }
+                }
+                
+                return true;
+                
+            } catch (error) {
+                console.error('❌ 学习数据完整性检查失败:', error);
+                return false;
+            }
+        }
+        
+        /**
+         * 🆕 检查积分一致性
+         */
+        function checkPointsConsistency() {
+            try {
+                const storedTotalPoints = parseInt(localStorage.getItem('totalPoints')) || 0;
+                
+                // 重新计算总积分
+                let calculatedTotal = 0;
+                const studyDataStr = localStorage.getItem('studyCheckIn');
+                
+                if (studyDataStr) {
+                    const studyData = JSON.parse(studyDataStr);
+                    
+                    for (const dateKey in studyData) {
+                        const plans = studyData[dateKey] || [];
+                        for (const plan of plans) {
+                            calculatedTotal += plan.earnedPoints || 0;
+                        }
+                    }
+                }
+                
+                // 检查差异
+                const difference = Math.abs(storedTotalPoints - calculatedTotal);
+                if (difference > 0) {
+                    console.warn(`⚠️ 积分不一致：存储=${storedTotalPoints}, 计算=${calculatedTotal}, 差异=${difference}`);
+                    
+                    // 自动修复积分
+                    localStorage.setItem('totalPoints', calculatedTotal.toString());
+                    totalPoints = calculatedTotal;
+                    
+                    // 更新界面显示
+                    updateTotalPoints();
+                    
+                    console.log('✅ 积分已自动修复');
+                    return false; // 返回false表示发现了问题但已修复
+                }
+                
+                return true;
+                
+            } catch (error) {
+                console.error('❌ 积分一致性检查失败:', error);
+                return false;
+            }
+        }
+        
+        /**
+         * 🆕 检查并恢复用户数据
+         */
+        function checkAndRestoreUserData() {
+            console.log('🛡️ 开始检查并恢复用户数据...');
+            
+            try {
+                // 检查奖励设置是否丢失
+                const rewardSettings = localStorage.getItem('rewardSettings');
+                if (!rewardSettings) {
+                    console.log('🚨 检测到奖励设置丢失，尝试恢复...');
+                    
+                    // 尝试从备份恢复
+                    const backupRewards = localStorage.getItem('rewardSettings_backup') || 
+                                         localStorage.getItem('rewardSettings_v2') ||
+                                         localStorage.getItem('rewardSettings_iPhone6');
+                    
+                    if (backupRewards) {
+                        localStorage.setItem('rewardSettings', backupRewards);
+                        console.log('✅ 从备份恢复了奖励设置');
+                        
+                        // 重新加载奖励数据
+                        loadRewardData();
+                        updateRewardPreview();
+                        renderRewardListInPoints();
+                        
+                        // 显示恢复成功提示
+                        showDataRestoreSuccess('奖励设置');
+                    } else {
+                        console.warn('⚠️ 未找到奖励设置备份');
+                    }
+                }
+                
+                // 检查已领取奖励记录
+                const claimedRewards = localStorage.getItem('claimedRewards');
+                if (!claimedRewards) {
+                    const backupClaimed = localStorage.getItem('claimedRewards_backup') || 
+                                        localStorage.getItem('claimedRewards_v2') ||
+                                        localStorage.getItem('claimedRewards_iPhone6');
+                    
+                    if (backupClaimed) {
+                        localStorage.setItem('claimedRewards', backupClaimed);
+                        console.log('✅ 从备份恢复了已领取奖励记录');
+                    }
+                }
+                
+                // 执行数据完整性检查
+                performDataIntegrityCheck();
+                
+            } catch (error) {
+                console.error('❌ 用户数据恢复失败:', error);
+            }
+        }
+        
+        /**
+         * 🆕 显示数据完整性警告
+         */
+        function showDataIntegrityWarning() {
+            const warning = document.createElement('div');
+            warning.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: linear-gradient(135deg, #ffd43b, #fab005);
+                color: #333;
+                padding: 15px 20px;
+                border-radius: 15px;
+                font-size: 14px;
+                font-weight: bold;
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+                z-index: 10000;
+                max-width: 90%;
+                text-align: center;
+                animation: fadeInOut 10s ease-in-out;
+                border: 2px solid #fd7e14;
+            `;
+            
+            warning.innerHTML = `
+                <div style="font-size: 16px; margin-bottom: 8px;">⚠️ 数据检查提示</div>
+                <div style="font-size: 12px; line-height: 1.5;">
+                    检测到数据可能不完整，已自动修复。<br>
+                    如发现设置丢失，请重新配置。
+                </div>
+            `;
+            
+            document.body.appendChild(warning);
+            
+            setTimeout(() => {
+                if (warning.parentNode) {
+                    warning.remove();
+                }
+            }, 10000);
+        }
+        
+        /**
+         * 🆕 显示数据恢复成功提示
+         */
+        function showDataRestoreSuccess(dataType) {
+            const success = document.createElement('div');
+            success.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: linear-gradient(135deg, #51cf66, #40c057);
+                color: white;
+                padding: 15px 20px;
+                border-radius: 15px;
+                font-size: 14px;
+                font-weight: bold;
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+                z-index: 10000;
+                max-width: 90%;
+                text-align: center;
+                animation: fadeInOut 6s ease-in-out;
+            `;
+            
+            success.innerHTML = `
+                <div style="font-size: 16px; margin-bottom: 8px;">✅ 数据恢复成功</div>
+                <div style="font-size: 12px; line-height: 1.5;">
+                    ${dataType}已从备份恢复，无需重新设置。
+                </div>
+            `;
+            
+            document.body.appendChild(success);
+            
+            setTimeout(() => {
+                if (success.parentNode) {
+                    success.remove();
+                }
+            }, 6000);
+        }
 
         /**
          * 上移任务 - 将任务向上移动一个位置
