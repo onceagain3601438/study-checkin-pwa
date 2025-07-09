@@ -16,10 +16,10 @@ const urlsToCache = [
 ];
 
 /**
- * 🆕 强制清除所有旧缓存
+ * 🆕 智能缓存清理（保护用户数据）
  */
 async function forceCleanOldCaches() {
-    console.log('🧹 开始强制清除所有旧缓存...');
+    console.log('🧹 开始智能缓存清理（保护用户数据）...');
     
     try {
         const cacheNames = await caches.keys();
@@ -33,13 +33,15 @@ async function forceCleanOldCaches() {
         await Promise.all(deletePromises);
         console.log('✅ 所有旧缓存已清除');
         
-        // 向所有客户端发送缓存清理完成消息
+        // 🆕 向所有客户端发送缓存清理完成消息，提醒保护用户数据
         const clients = await self.clients.matchAll();
         clients.forEach(client => {
             client.postMessage({
                 type: 'CACHE_CLEANED',
                 version: CACHE_VERSION,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                // 🆕 提醒客户端保护用户数据
+                protectUserData: true
             });
         });
         
