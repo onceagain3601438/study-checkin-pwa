@@ -2974,67 +2974,110 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
             updateStudyDisplay();
         }
 
-        // 任务操作函数
+        // 🆕 修复任务学习状态切换函数 - 完全重写
         function toggleTaskCompleted(planId, taskId) {
-            console.log(`🎯 切换任务完成状态: 计划${planId}, 任务${taskId}`);
+            console.log(`🎯 切换任务学习状态: 计划${planId}, 任务${taskId}`);
             
             const dateKey = getDateKey(currentStudyDate);
-            const plan = studyData[dateKey].find(p => p.id === planId);
+            const plan = studyData[dateKey]?.find(p => p.id === planId);
             
             if (plan) {
                 const task = plan.tasks.find(t => t.id === taskId);
                 if (task) {
-                    const wasCompleted = task.completed;
-                    task.completed = !task.completed;
+                    // 记录原来的已获得积分
+                    const oldEarnedPoints = task.earnedPoints || 0;
                     
-                    console.log(`✅ 任务完成状态已更新: ${task.name} = ${task.completed ? '已完成' : '未完成'}`);
+                    // 切换学习完成状态
+                    task.studyCompleted = !task.studyCompleted;
                     
-                    // 🆕 播放任务完成语音提醒
-                    if (task.completed && window.voiceReminder && window.voiceReminder.canPlayReminder('taskComplete')) {
-                        console.log('🔊 播放任务完成语音提醒');
+                    console.log(`📚 任务学习状态已更新: ${task.name} = ${task.studyCompleted ? '已学习' : '未学习'}`);
+                    
+                    // 重新计算任务积分
+                    updateTaskPoints(task);
+                    
+                    // 更新计划统计
+                    updatePlanStats(plan);
+                    
+                    // 计算积分变化并更新总积分
+                    const pointsChange = task.earnedPoints - oldEarnedPoints;
+                    if (pointsChange !== 0) {
+                        totalPoints = Math.max(0, totalPoints + pointsChange);
+                        saveTotalPoints();
+                        console.log(`💰 积分变化: ${pointsChange > 0 ? '+' : ''}${pointsChange}, 总积分: ${totalPoints}`);
+                    }
+                    
+                    // 🆕 播放任务学习完成语音提醒
+                    if (task.studyCompleted && window.voiceReminder && window.voiceReminder.canPlayReminder('taskComplete')) {
+                        console.log('🔊 播放任务学习完成语音提醒');
                         window.voiceReminder.playTaskCompleteReminder(task.name);
                     }
                     
                     saveStudyData();
-                    renderStudyPlans();
+                    updateStudyDisplay();
                     updateTotalPoints();
                 }
             }
         }
 
-        // 🆕 修复任务掌握状态切换函数
+        // 🆕 修复任务掌握状态切换函数 - 完全重写
         function toggleTaskMastered(planId, taskId) {
             console.log(`🎯 切换任务掌握状态: 计划${planId}, 任务${taskId}`);
             
             const dateKey = getDateKey(currentStudyDate);
-            const plan = studyData[dateKey].find(p => p.id === planId);
+            const plan = studyData[dateKey]?.find(p => p.id === planId);
             
             if (plan) {
                 const task = plan.tasks.find(t => t.id === taskId);
                 if (task) {
-                    const wasMastered = task.mastered;
-                    task.mastered = !task.mastered;
+                    // 记录原来的已获得积分
+                    const oldEarnedPoints = task.earnedPoints || 0;
                     
-                    console.log(`🏆 任务掌握状态已更新: ${task.name} = ${task.mastered ? '已掌握' : '未掌握'}`);
+                    // 切换掌握完成状态
+                    task.masteredCompleted = !task.masteredCompleted;
+                    
+                    console.log(`🏆 任务掌握状态已更新: ${task.name} = ${task.masteredCompleted ? '已掌握' : '未掌握'}`);
+                    
+                    // 重新计算任务积分
+                    updateTaskPoints(task);
+                    
+                    // 更新计划统计
+                    updatePlanStats(plan);
+                    
+                    // 计算积分变化并更新总积分
+                    const pointsChange = task.earnedPoints - oldEarnedPoints;
+                    if (pointsChange !== 0) {
+                        totalPoints = Math.max(0, totalPoints + pointsChange);
+                        saveTotalPoints();
+                        console.log(`💰 积分变化: ${pointsChange > 0 ? '+' : ''}${pointsChange}, 总积分: ${totalPoints}`);
+                    }
                     
                     // 🆕 播放任务掌握语音提醒
-                    if (task.mastered && window.voiceReminder && window.voiceReminder.canPlayReminder('taskMaster')) {
+                    if (task.masteredCompleted && window.voiceReminder && window.voiceReminder.canPlayReminder('taskMaster')) {
                         console.log('🔊 播放任务掌握语音提醒');
-                        window.voiceReminder.playTaskMasterReminder(task.name, task.points || 10);
+                        window.voiceReminder.playTaskMasterReminder(task.name, task.earnedPoints || task.points || 10);
                     }
                     
                     saveStudyData();
-                    renderStudyPlans();
+                    updateStudyDisplay();
                     updateTotalPoints();
                 }
             }
         }
 
+        // 🆕 修复积分计算逻辑，与小程序版本保持一致
         function updateTaskPoints(task) {
             let earned = 0;
-            if (task.studyCompleted) earned += Math.floor(task.points * 0.5);
-            if (task.masteredCompleted) earned += Math.floor(task.points * 0.5);
+            // 学习状态：获得30%积分
+            if (task.studyCompleted) {
+                earned += Math.round(task.points * 0.3);
+            }
+            // 掌握状态：获得70%积分
+            if (task.masteredCompleted) {
+                earned += Math.round(task.points * 0.7);
+            }
             task.earnedPoints = earned;
+            
+            console.log(`📊 任务积分计算: ${task.name} - 学习:${task.studyCompleted ? '✓' : '✗'} 掌握:${task.masteredCompleted ? '✓' : '✗'} 积分:${task.earnedPoints}/${task.points}`);
         }
 
         function updatePlanStats(plan) {
