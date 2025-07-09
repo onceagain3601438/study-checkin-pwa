@@ -4477,23 +4477,111 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                             <!-- 提醒类型选择 -->
                             <div style="margin-bottom: 20px;">
                                 <div style="font-size: 14px; font-weight: bold; margin-bottom: 10px; color: #333;">提醒类型选择：</div>
-                                <div style="display: grid; grid-template-columns: 1fr; gap: 10px; font-size: 14px;">
-                                    <label style="display: flex; align-items: center;">
-                                        <input type="checkbox" id="voiceStudyStart" style="margin-right: 8px; width: 18px; height: 18px;">
-                                        🕐 学习开始提醒
-                                    </label>
-                                    <label style="display: flex; align-items: center;">
-                                        <input type="checkbox" id="voiceStudyEnd" style="margin-right: 8px; width: 18px; height: 18px;">
-                                        ⏰ 学习结束提醒
-                                    </label>
-                                    <label style="display: flex; align-items: center;">
-                                        <input type="checkbox" id="voiceTaskComplete" style="margin-right: 8px; width: 18px; height: 18px;">
-                                        ✅ 任务完成提醒
-                                    </label>
-                                    <label style="display: flex; align-items: center;">
-                                        <input type="checkbox" id="voiceTaskMaster" style="margin-right: 8px; width: 18px; height: 18px;">
-                                        🎯 任务掌握提醒
-                                    </label>
+                                <div style="display: grid; grid-template-columns: 1fr; gap: 6px; font-size: 13px;">
+                                    <!-- 学习开始提醒 -->
+                                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px; background: #f8f9fa; border-radius: 6px;">
+                                        <label style="display: flex; align-items: center; flex: 1;">
+                                            <input type="checkbox" id="voiceStudyStart" style="margin-right: 8px; width: 16px; height: 16px;">
+                                            🕐 学习开始提醒
+                                        </label>
+                                        <select id="voiceStudyStartCount" style="width: 60px; padding: 2px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;">
+                                            <option value="0">0次</option>
+                                            <option value="1">1次</option>
+                                            <option value="2">2次</option>
+                                            <option value="3" selected>3次</option>
+                                            <option value="5">5次</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <!-- 学习结束提醒 -->
+                                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px; background: #f8f9fa; border-radius: 6px;">
+                                        <label style="display: flex; align-items: center; flex: 1;">
+                                            <input type="checkbox" id="voiceStudyEnd" style="margin-right: 8px; width: 16px; height: 16px;">
+                                            ⏰ 学习结束提醒
+                                        </label>
+                                        <select id="voiceStudyEndCount" style="width: 60px; padding: 2px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;">
+                                            <option value="0">0次</option>
+                                            <option value="1">1次</option>
+                                            <option value="2">2次</option>
+                                            <option value="3" selected>3次</option>
+                                            <option value="5">5次</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <!-- 任务完成提醒 -->
+                                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px; background: #f8f9fa; border-radius: 6px;">
+                                        <label style="display: flex; align-items: center; flex: 1;">
+                                            <input type="checkbox" id="voiceTaskComplete" style="margin-right: 8px; width: 16px; height: 16px;">
+                                            ✅ 任务完成提醒
+                                        </label>
+                                        <select id="voiceTaskCompleteCount" style="width: 60px; padding: 2px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;">
+                                            <option value="0">0次</option>
+                                            <option value="1" selected>1次</option>
+                                            <option value="2">2次</option>
+                                            <option value="3">3次</option>
+                                            <option value="5">5次</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <!-- 任务掌握提醒 -->
+                                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px; background: #e8f5e8; border-radius: 6px;">
+                                        <label style="display: flex; align-items: center; flex: 1;">
+                                            <input type="checkbox" id="voiceTaskMaster" style="margin-right: 8px; width: 16px; height: 16px;">
+                                            🎯 任务掌握提醒 <span style="color: #28a745; font-size: 10px;">(重要)</span>
+                                        </label>
+                                        <select id="voiceTaskMasterCount" style="width: 60px; padding: 2px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;">
+                                            <option value="0">0次</option>
+                                            <option value="1">1次</option>
+                                            <option value="2">2次</option>
+                                            <option value="3">3次</option>
+                                            <option value="5" selected>5次</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <!-- 设置确认提醒 -->
+                                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px; background: #f8f9fa; border-radius: 6px;">
+                                        <label style="display: flex; align-items: center; flex: 1;">
+                                            <input type="checkbox" id="voiceSettingConfirm" style="margin-right: 8px; width: 16px; height: 16px;">
+                                            ⚙️ 设置确认提醒
+                                        </label>
+                                        <select id="voiceSettingConfirmCount" style="width: 60px; padding: 2px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;">
+                                            <option value="0">0次</option>
+                                            <option value="1" selected>1次</option>
+                                            <option value="2">2次</option>
+                                            <option value="3">3次</option>
+                                            <option value="5">5次</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <!-- 计划添加提醒 -->
+                                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px; background: #f8f9fa; border-radius: 6px;">
+                                        <label style="display: flex; align-items: center; flex: 1;">
+                                            <input type="checkbox" id="voicePlanAdded" style="margin-right: 8px; width: 16px; height: 16px;">
+                                            📋 计划添加提醒
+                                        </label>
+                                        <select id="voicePlanAddedCount" style="width: 60px; padding: 2px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;">
+                                            <option value="0">0次</option>
+                                            <option value="1" selected>1次</option>
+                                            <option value="2">2次</option>
+                                            <option value="3">3次</option>
+                                            <option value="5">5次</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <!-- 鼓励性提醒 -->
+                                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px; background: #fff3cd; border-radius: 6px;">
+                                        <label style="display: flex; align-items: center; flex: 1;">
+                                            <input type="checkbox" id="voiceEncouragement" style="margin-right: 8px; width: 16px; height: 16px;">
+                                            💪 鼓励性提醒 <span style="color: #856404; font-size: 10px;">(激励)</span>
+                                        </label>
+                                        <select id="voiceEncouragementCount" style="width: 60px; padding: 2px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;">
+                                            <option value="0">0次</option>
+                                            <option value="1">1次</option>
+                                            <option value="2" selected>2次</option>
+                                            <option value="3">3次</option>
+                                            <option value="5">5次</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                             
@@ -4531,20 +4619,28 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                             <!-- 快速设置 -->
                             <div style="margin-top: 15px;">
                                 <div style="font-size: 14px; font-weight: bold; margin-bottom: 10px; color: #333;">快速设置：</div>
-                                <div style="display: flex; gap: 8px;">
-                                    <button onclick="selectAllRemindersForIPhone6()" style="padding: 8px 12px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 6px; cursor: pointer;">全选</button>
-                                    <button onclick="selectNoneRemindersForIPhone6()" style="padding: 8px 12px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 6px; cursor: pointer;">全不选</button>
+                                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                    <button onclick="selectAllRemindersForIPhone6()" style="padding: 6px 10px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; font-size: 11px;">全选(7)</button>
+                                    <button onclick="selectNoneRemindersForIPhone6()" style="padding: 6px 10px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; font-size: 11px;">全不选</button>
+                                    <button onclick="selectEssentialRemindersForIPhone6()" style="padding: 6px 10px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; font-size: 11px;">仅重要(3)</button>
+                                    <button onclick="setHighRepeatCounts()" style="padding: 6px 10px; background: #e8f5e8; border: 1px solid #28a745; border-radius: 6px; cursor: pointer; font-size: 11px;">高次数</button>
+                                    <button onclick="setLowRepeatCounts()" style="padding: 6px 10px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; cursor: pointer; font-size: 11px;">低次数</button>
                                 </div>
                             </div>
                             
                             <!-- 使用说明 -->
                             <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
                                 <div style="font-size: 12px; color: #666; line-height: 1.5;">
-                                    <strong>💡 iPhone 6 使用说明：</strong><br>
+                                    <strong>💡 自定义次数说明：</strong><br>
+                                    • 🎯 重要提醒（如任务掌握）建议设置5次<br>
+                                    • 📢 时间节点提醒建议设置3次确保听到<br>
+                                    • ⚙️ 设置确认提醒建议设置1次避免打扰<br>
+                                    • 💪 鼓励性提醒建议设置2次增强动力<br>
+                                    • 设置为0次等同于禁用该类型提醒<br><br>
+                                    <strong>📱 iPhone 6 使用提示：</strong><br>
                                     • 首次使用请允许网页播放音频<br>
                                     • 如果没有声音，请检查设备静音键<br>
-                                    • 建议将音量调至适中水平<br>
-                                    • 语音会连续播放3次确保听到
+                                    • 建议将音量调至适中水平
                                 </div>
                             </div>
                         </div>
@@ -4633,13 +4729,39 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                     'voiceStudyStart': settings.reminderTypes.studyStart,
                     'voiceStudyEnd': settings.reminderTypes.studyEnd,
                     'voiceTaskComplete': settings.reminderTypes.taskComplete,
-                    'voiceTaskMaster': settings.reminderTypes.taskMaster
+                    'voiceTaskMaster': settings.reminderTypes.taskMaster,
+                    'voiceSettingConfirm': settings.reminderTypes.settingConfirm,
+                    'voicePlanAdded': settings.reminderTypes.planAdded,
+                    'voiceEncouragement': settings.reminderTypes.encouragement
                 };
                 
                 Object.entries(checkboxes).forEach(([id, checked]) => {
                     const checkbox = document.getElementById(id);
                     if (checkbox) checkbox.checked = checked;
                 });
+                
+                // 🆕 更新自定义重复次数选择器
+                if (settings.repeatCounts) {
+                    const repeatCountSelectors = {
+                        'voiceStudyStartCount': settings.repeatCounts.studyStart || 3,
+                        'voiceStudyEndCount': settings.repeatCounts.studyEnd || 3,
+                        'voiceTaskCompleteCount': settings.repeatCounts.taskComplete || 1,
+                        'voiceTaskMasterCount': settings.repeatCounts.taskMaster || 5,
+                        'voiceSettingConfirmCount': settings.repeatCounts.settingConfirm || 1,
+                        'voicePlanAddedCount': settings.repeatCounts.planAdded || 1,
+                        'voiceEncouragementCount': settings.repeatCounts.encouragement || 2
+                    };
+                    
+                    Object.entries(repeatCountSelectors).forEach(([id, value]) => {
+                        const selector = document.getElementById(id);
+                        if (selector) {
+                            selector.value = value;
+                            console.log(`🔢 恢复重复次数: ${id} = ${value}`);
+                        }
+                    });
+                } else {
+                    console.log('⚠️ 未找到保存的重复次数设置，使用默认值');
+                }
             }
             
             console.log('✅ iPhone 6专用事件绑定完成');
@@ -4741,12 +4863,26 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                 const volume = parseFloat(document.getElementById('voiceVolume').value);
                 const rate = parseFloat(document.getElementById('voiceRate').value);
                 
-                // 获取提醒类型设置
+                // 获取提醒类型设置和自定义次数
                 const reminderTypes = {
                     studyStart: document.getElementById('voiceStudyStart').checked,
                     studyEnd: document.getElementById('voiceStudyEnd').checked,
                     taskComplete: document.getElementById('voiceTaskComplete').checked,
-                    taskMaster: document.getElementById('voiceTaskMaster').checked
+                    taskMaster: document.getElementById('voiceTaskMaster').checked,
+                    settingConfirm: document.getElementById('voiceSettingConfirm').checked,
+                    planAdded: document.getElementById('voicePlanAdded').checked,
+                    encouragement: document.getElementById('voiceEncouragement').checked
+                };
+                
+                // 🆕 获取自定义重复次数设置
+                const repeatCounts = {
+                    studyStart: parseInt(document.getElementById('voiceStudyStartCount').value) || 3,
+                    studyEnd: parseInt(document.getElementById('voiceStudyEndCount').value) || 3,
+                    taskComplete: parseInt(document.getElementById('voiceTaskCompleteCount').value) || 1,
+                    taskMaster: parseInt(document.getElementById('voiceTaskMasterCount').value) || 5,
+                    settingConfirm: parseInt(document.getElementById('voiceSettingConfirmCount').value) || 1,
+                    planAdded: parseInt(document.getElementById('voicePlanAddedCount').value) || 1,
+                    encouragement: parseInt(document.getElementById('voiceEncouragementCount').value) || 2
                 };
                 
                 // 保存设置
@@ -4755,14 +4891,29 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                 window.voiceReminder.rate = rate;
                 Object.assign(window.voiceReminder.reminderTypes, reminderTypes);
                 
+                // 🆕 保存自定义重复次数设置
+                if (!window.voiceReminder.repeatCounts) {
+                    window.voiceReminder.repeatCounts = {};
+                }
+                Object.assign(window.voiceReminder.repeatCounts, repeatCounts);
+                
                 // 保存到本地存储
                 localStorage.setItem('voiceReminder_voiceReminderEnabled', JSON.stringify(isEnabled));
                 localStorage.setItem('voiceReminder_voiceReminderVolume', JSON.stringify(volume));
                 localStorage.setItem('voiceReminder_voiceReminderRate', JSON.stringify(rate));
                 
+                // 保存各种提醒类型设置到本地存储
                 Object.entries(reminderTypes).forEach(([type, enabled]) => {
                     const key = `voiceReminder_voice${type.charAt(0).toUpperCase() + type.slice(1)}`;
                     localStorage.setItem(key, JSON.stringify(enabled));
+                    console.log(`💾 保存提醒设置: ${key} = ${enabled}`);
+                });
+                
+                // 🆕 保存自定义重复次数到本地存储
+                Object.entries(repeatCounts).forEach(([type, count]) => {
+                    const key = `voiceReminder_repeat${type.charAt(0).toUpperCase() + type.slice(1)}`;
+                    localStorage.setItem(key, JSON.stringify(count));
+                    console.log(`💾 保存重复次数: ${key} = ${count}`);
                 });
                 
                 // 🆕 只在语音引擎已激活且用户明确启用语音时播放确认提醒
@@ -4795,19 +4946,117 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
             }
         }
 
-        // 🆕 iPhone 6快速设置
+        // 🆕 iPhone 6快速设置 - 更新为完整的7种提醒类型
         function selectAllRemindersForIPhone6() {
-            ['voiceStudyStart', 'voiceStudyEnd', 'voiceTaskComplete', 'voiceTaskMaster'].forEach(id => {
+            console.log('📋 选择所有7种提醒类型...');
+            const allReminders = [
+                'voiceStudyStart', 'voiceStudyEnd', 'voiceTaskComplete', 'voiceTaskMaster',
+                'voiceSettingConfirm', 'voicePlanAdded', 'voiceEncouragement'
+            ];
+            
+            allReminders.forEach(id => {
                 const checkbox = document.getElementById(id);
-                if (checkbox) checkbox.checked = true;
+                if (checkbox) {
+                    checkbox.checked = true;
+                    console.log(`✅ 已启用: ${id}`);
+                } else {
+                    console.warn(`⚠️ 找不到复选框: ${id}`);
+                }
             });
+            
+            console.log('✅ 所有7种提醒类型已启用');
         }
 
         function selectNoneRemindersForIPhone6() {
-            ['voiceStudyStart', 'voiceStudyEnd', 'voiceTaskComplete', 'voiceTaskMaster'].forEach(id => {
+            console.log('📋 取消所有提醒类型...');
+            const allReminders = [
+                'voiceStudyStart', 'voiceStudyEnd', 'voiceTaskComplete', 'voiceTaskMaster',
+                'voiceSettingConfirm', 'voicePlanAdded', 'voiceEncouragement'
+            ];
+            
+            allReminders.forEach(id => {
                 const checkbox = document.getElementById(id);
-                if (checkbox) checkbox.checked = false;
+                if (checkbox) {
+                    checkbox.checked = false;
+                    console.log(`❌ 已禁用: ${id}`);
+                } else {
+                    console.warn(`⚠️ 找不到复选框: ${id}`);
+                }
             });
+            
+            console.log('✅ 所有提醒类型已禁用');
+        }
+
+        function selectEssentialRemindersForIPhone6() {
+            console.log('📋 选择重要提醒类型...');
+            
+            // 首先全部取消
+            selectNoneRemindersForIPhone6();
+            
+            // 只启用重要的3种提醒
+            const essentialReminders = ['voiceStudyStart', 'voiceStudyEnd', 'voiceTaskMaster'];
+            
+            essentialReminders.forEach(id => {
+                const checkbox = document.getElementById(id);
+                if (checkbox) {
+                    checkbox.checked = true;
+                    console.log(`✅ 已启用重要提醒: ${id}`);
+                } else {
+                    console.warn(`⚠️ 找不到复选框: ${id}`);
+                }
+            });
+            
+            console.log('✅ 重要提醒类型已设置（学习开始、学习结束、任务掌握）');
+        }
+
+        // 🆕 设置高次数重复（适合需要强提醒的用户）
+        function setHighRepeatCounts() {
+            console.log('📋 设置高次数重复配置...');
+            
+            const highRepeatSettings = {
+                'voiceStudyStartCount': 5,      // 学习开始：5次
+                'voiceStudyEndCount': 5,        // 学习结束：5次
+                'voiceTaskCompleteCount': 3,    // 任务完成：3次
+                'voiceTaskMasterCount': 5,      // 任务掌握：5次
+                'voiceSettingConfirmCount': 2,  // 设置确认：2次
+                'voicePlanAddedCount': 3,       // 计划添加：3次
+                'voiceEncouragementCount': 3    // 鼓励性：3次
+            };
+            
+            Object.entries(highRepeatSettings).forEach(([id, value]) => {
+                const selector = document.getElementById(id);
+                if (selector) {
+                    selector.value = value;
+                    console.log(`🔢 设置高次数: ${id} = ${value}`);
+                }
+            });
+            
+            console.log('✅ 已设置高次数重复配置（适合需要强提醒的用户）');
+        }
+
+        // 🆕 设置低次数重复（适合不喜欢打扰的用户）
+        function setLowRepeatCounts() {
+            console.log('📋 设置低次数重复配置...');
+            
+            const lowRepeatSettings = {
+                'voiceStudyStartCount': 2,      // 学习开始：2次
+                'voiceStudyEndCount': 2,        // 学习结束：2次
+                'voiceTaskCompleteCount': 1,    // 任务完成：1次
+                'voiceTaskMasterCount': 2,      // 任务掌握：2次
+                'voiceSettingConfirmCount': 1,  // 设置确认：1次
+                'voicePlanAddedCount': 1,       // 计划添加：1次
+                'voiceEncouragementCount': 1    // 鼓励性：1次
+            };
+            
+            Object.entries(lowRepeatSettings).forEach(([id, value]) => {
+                const selector = document.getElementById(id);
+                if (selector) {
+                    selector.value = value;
+                    console.log(`🔢 设置低次数: ${id} = ${value}`);
+                }
+            });
+            
+            console.log('✅ 已设置低次数重复配置（适合不喜欢打扰的用户）');
         }
 
         // DOMContentLoaded 事件处理 - iPhone 6专用版
