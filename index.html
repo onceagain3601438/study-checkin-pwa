@@ -2998,13 +2998,7 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                     // 更新计划统计
                     updatePlanStats(plan);
                     
-                    // 计算积分变化并更新总积分
-                    const pointsChange = task.earnedPoints - oldEarnedPoints;
-                    if (pointsChange !== 0) {
-                        totalPoints = Math.max(0, totalPoints + pointsChange);
-                        saveTotalPoints();
-                        console.log(`💰 积分变化: ${pointsChange > 0 ? '+' : ''}${pointsChange}, 总积分: ${totalPoints}`);
-                    }
+                    console.log(`📚 任务学习状态更新完成: ${task.name} = ${task.studyCompleted ? '已学习' : '未学习'}, 积分: ${task.earnedPoints}/${task.points}`);
                     
                     // 🆕 播放任务学习完成语音提醒
                     if (task.studyCompleted && window.voiceReminder && window.voiceReminder.canPlayReminder('taskComplete')) {
@@ -3012,9 +3006,10 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                         window.voiceReminder.playTaskCompleteReminder(task.name);
                     }
                     
-                    saveStudyData();
+                    saveData();
                     updateStudyDisplay();
                     updateTotalPoints();
+                    updatePointsDisplay();
                 }
             }
         }
@@ -3043,13 +3038,7 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                     // 更新计划统计
                     updatePlanStats(plan);
                     
-                    // 计算积分变化并更新总积分
-                    const pointsChange = task.earnedPoints - oldEarnedPoints;
-                    if (pointsChange !== 0) {
-                        totalPoints = Math.max(0, totalPoints + pointsChange);
-                        saveTotalPoints();
-                        console.log(`💰 积分变化: ${pointsChange > 0 ? '+' : ''}${pointsChange}, 总积分: ${totalPoints}`);
-                    }
+                    console.log(`🏆 任务掌握状态更新完成: ${task.name} = ${task.masteredCompleted ? '已掌握' : '未掌握'}, 积分: ${task.earnedPoints}/${task.points}`);
                     
                     // 🆕 播放任务掌握语音提醒
                     if (task.masteredCompleted && window.voiceReminder && window.voiceReminder.canPlayReminder('taskMaster')) {
@@ -3057,9 +3046,10 @@ ${hasVoiceReminder ? '✅ 系统运行正常' : '⚠️ 请点击语音设置按
                         window.voiceReminder.playTaskMasterReminder(task.name, task.earnedPoints || task.points || 10);
                     }
                     
-                    saveStudyData();
+                    saveData();
                     updateStudyDisplay();
                     updateTotalPoints();
+                    updatePointsDisplay();
                 }
             }
         }
